@@ -1,0 +1,5 @@
+de=Alice
+para=Bob
+tipo=PARAMETROS
+p=16111588087964621339
+g=2

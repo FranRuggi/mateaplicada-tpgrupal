@@ -11,7 +11,7 @@ no sabe si los datos van por memoria, por archivos .txt o por sockets.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Callable
-
+import os
 
 @dataclass
 class Mensaje:
@@ -87,10 +87,29 @@ class CanalArchivo(Canal):
         self.carpeta = carpeta
 
     def enviar(self, mensaje: Mensaje):
-        raise NotImplementedError("Canal por archivos todavía no implementado.")
+        #definir nombre del arch segun quien lo escribio y para quien
+        nombre_archivo = f"{mensaje.remitente}_a_{mensaje.destinatario}.txt"
+        ruta_archivo = os.path.join(self.carpeta, nombre_archivo)
+        #guardar el mensaje a texto
+        f = open(ruta_archivo, "w", encoding="utf-8")
+        f.write(mensaje.a_texto())
+        f.close()
+        #notificar observadores del mensaje
+        self._notificar(mensaje)
 
     def recibir(self, destinatario: str) -> Mensaje | None:
-        raise NotImplementedError("Canal por archivos todavía no implementado.")
+        #remitente: envia, si es para bob lo envio alice, sino alreves
+        remitente = "Bob" if destinatario == "Alice" else "Alice"
+        nombre_archivo = f"{remitente}_a_{destinatario}.txt"
+        ruta_archivo = os.path.join(self.carpeta, nombre_archivo)
+        #si existe la ruta del archivo
+        if os.path.exists(ruta_archivo):
+            f = open(ruta_archivo, "r", encoding="utf-8")
+            contenido = f.read()
+            f.close()
+            os.remove(ruta_archivo)
+            return Mensaje.desde_texto(contenido)
+        return None
 
 
 class CanalSocket(Canal):
