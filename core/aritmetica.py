@@ -31,19 +31,42 @@ class Paso:
 # Exponenciación modular
 # ---------------------------------------------------------------------------
 def mod_pow(base: int, exp: int, mod: int) -> tuple[int, list[Paso]]:
-    """Devuelve (base^exp mod mod, lista de pasos)."""
+    """Devuelve (base^exp mod mod, lista de pasos trabajando directamente con el número)."""
+    if mod == 1:
+        return 0, [Paso("Módulo es 1, el resultado es 0")]
 
-    bits = bin(exp)[2:]
-    pasos = [Paso(f"Exponente en binario ({len(bits)} bits): {_corto(bits, 40)}")]
+    pasos = [Paso(f"Exponente inicial: e = {exp} (binario: {bin(exp)[2:]})")]
     max_pasos = 12
-    for i, bit in enumerate(reversed(bits)):
+    r = 1
+    g = base % mod
+    e = exp
+    i = 0
+    while e > 0:
         if i >= max_pasos:
-            pasos.append(Paso(f"… {len(bits) - max_pasos} bits más (se omiten)"))
+            pasos.append(Paso(f"… Se superó el límite de {max_pasos} pasos (se omiten los restantes)"))
             break
-        cuadrado = potencia_modular(base, 2 ** i, mod)  # con funcion propia
-        accion = "se multiplica al acumulador" if bit == "1" else "se saltea"
-        pasos.append(Paso(f"bit {i} = {bit} → base^(2^{i}) mod p, {accion}", cuadrado))
-    resultado = potencia_modular(base, exp, mod)  # con funcion propia
+        r_anterior = r
+        if e & 1: #si es impar mostrar como se actualiza o no r
+            r = (r * g) % mod
+            accion_r = f"e es IMPAR (bit = 1) -> r se actualiza: ({r_anterior} * {g}) mod {mod} = {r}"
+        else:
+            accion_r = f"e es PAR (bit = 0) -> r se MANTIENE en {r}"
+        #actualizar e
+        e_anterior = e
+        e = e >> 1  #dividir x 2 y tira el ultimo si es impar (bit shift)
+        g_anterior = g
+        g = (g * g) % mod
+        #mostrar que hicimos
+        detalle = (
+            f"Iteración {i} (e={e_anterior}): "
+            f"{accion_r} | e pasa a {e} | g pasa a {g}"
+        )
+        pasos.append(Paso(detalle, r))
+        i += 1
+
+    #Llamamos a la función para asegurar el resultado final
+    #(por si se cortó la lista por el max_pasos)
+    resultado = potencia_modular(base, exp, mod)
     pasos.append(Paso("Resultado", resultado))
     return resultado, pasos
 
