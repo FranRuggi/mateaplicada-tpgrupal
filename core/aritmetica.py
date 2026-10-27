@@ -17,7 +17,7 @@ La GUI y el protocolo no se enteran del cambio.
 from dataclasses import dataclass
 import random  # TODO(motor): ¿se permite random/secrets? -> ver PREGUNTAS.md
 
-MOCK = True
+MOCK = False
 
 
 @dataclass
@@ -31,11 +31,8 @@ class Paso:
 # Exponenciación modular
 # ---------------------------------------------------------------------------
 def mod_pow(base: int, exp: int, mod: int) -> tuple[int, list[Paso]]:
-    """Devuelve (base^exp mod mod, lista de pasos).
+    """Devuelve (base^exp mod mod, lista de pasos)."""
 
-    TODO(motor): implementar square-and-multiply propio. Cada iteración
-    del algoritmo debería agregar un Paso para que la GUI lo muestre.
-    """
     bits = bin(exp)[2:]
     pasos = [Paso(f"Exponente en binario ({len(bits)} bits): {_corto(bits, 40)}")]
     max_pasos = 12
@@ -43,22 +40,31 @@ def mod_pow(base: int, exp: int, mod: int) -> tuple[int, list[Paso]]:
         if i >= max_pasos:
             pasos.append(Paso(f"… {len(bits) - max_pasos} bits más (se omiten)"))
             break
-        cuadrado = pow(base, 2 ** i, mod)  # MOCK
+        cuadrado = potencia_modular(base, 2 ** i, mod)  # con funcion propia
         accion = "se multiplica al acumulador" if bit == "1" else "se saltea"
         pasos.append(Paso(f"bit {i} = {bit} → base^(2^{i}) mod p, {accion}", cuadrado))
-    resultado = pow(base, exp, mod)  # MOCK
+    resultado = potencia_modular(base, exp, mod)  # con funcion propia
     pasos.append(Paso("Resultado", resultado))
     return resultado, pasos
 
-
+def potencia_modular(base: int, exp: int, mod: int) -> int:
+    if mod == 1:
+        return 0
+    resultado = 1 #r segun notacion de la catedra
+    base = base % mod #hacer g^2
+    while exp > 0: #e
+        #si e es impar -> hacer (e-1)/2 y actualizar r
+        if exp & 1: #si el ultimo bit es 1, osea, es impar
+            resultado = (resultado * base) % mod
+        exp = exp >> 1 #no importa si es par o impar aca pq si es impar se cae el ultimo bit y es como hacer (expo-1)/2
+        #hacer g^2 en modulo dado siempre
+        base = (base * base) % mod
+    return resultado
 # ---------------------------------------------------------------------------
 # Primos y generadores
 # ---------------------------------------------------------------------------
 def es_primo(n: int, rondas: int = 20) -> bool:
-    """Test de primalidad (Miller-Rabin).
-
-    TODO(motor): implementar usando nuestro mod_pow.
-    """
+    """Test de primalidad (Miller-Rabin)."""
     if n < 2:
         return False
     for chico in (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37):
@@ -70,11 +76,11 @@ def es_primo(n: int, rondas: int = 20) -> bool:
         r += 1
     for _ in range(rondas):
         a = random.randrange(2, n - 1)
-        x = pow(a, d, n)  # MOCK
+        x = potencia_modular(a, d, n)  # con funcion propia ahora
         if x in (1, n - 1):
             continue
         for _ in range(r - 1):
-            x = pow(x, 2, n)  # MOCK
+            x = potencia_modular(x, 2, n)  # con funcion propia ahora
             if x == n - 1:
                 break
         else:
@@ -83,11 +89,7 @@ def es_primo(n: int, rondas: int = 20) -> bool:
 
 
 def generar_parametros(bits: int) -> tuple[int, int, list[Paso]]:
-    """Genera un primo seguro p = 2q + 1 de `bits` bits y un generador g.
-
-    Devuelve (p, g, pasos).
-    TODO(motor): reemplazar por la implementación propia.
-    """
+    """Genera un primo seguro p = 2q + 1 de `bits` bits y un generador g."""
     pasos: list[Paso] = []
     intentos = 0
     while True:
@@ -105,13 +107,10 @@ def generar_parametros(bits: int) -> tuple[int, int, list[Paso]]:
 
 
 def encontrar_generador(p: int) -> int:
-    """Para p = 2q+1, g genera el grupo si g^2 != 1 y g^q != 1 (mod p).
-
-    TODO(motor): usar nuestro mod_pow.
-    """
+    """Para p = 2q+1, g genera el grupo si g^2 != 1 y g^q != 1 (mod p)."""
     q = (p - 1) // 2
     for g in range(2, p - 1):
-        if pow(g, 2, p) != 1 and pow(g, q, p) != 1:  # MOCK
+        if potencia_modular(g, 2, p) != 1 and potencia_modular(g, q, p) != 1:  #con funcion propia ahora
             return g
     raise ValueError("No se encontró generador (¿p es primo seguro?)")
 
