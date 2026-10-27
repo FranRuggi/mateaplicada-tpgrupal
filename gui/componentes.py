@@ -102,8 +102,8 @@ class TarjetaParticipante(Tarjeta):
     """Panel completo de Alice o de Bob: privada → pública → enviar → secreto.
 
     callbacks:
-      al_enviar(participante)            -> la vista decide por qué canal mandar
-      al_mostrar_pasos(titulo, pasos)    -> la vista lo manda al PanelPasos
+     al_enviar(participante)            -> la vista decide por qué canal mandar
+     al_mostrar_pasos(titulo, pasos)    -> la vista lo manda al PanelPasos
     """
 
     def __init__(self, master, participante: Participante, color: str, otro: str,
@@ -114,12 +114,22 @@ class TarjetaParticipante(Tarjeta):
         self.priv, self.pub, self.pub_otro = priv, pub, pub_otro
         self.al_enviar, self.al_mostrar_pasos = al_enviar, al_mostrar_pasos
         self._ocultar = True
+        
+        # 1. Contenedor scrolleable interno para evitar que se corte el contenido al cambiar el tamaño
+        self.scroll_interno = ctk.CTkScrollableFrame(
+            self, fg_color="transparent", corner_radius=0
+        )
+        self.scroll_interno.grid(row=self.siguiente_fila, column=0, sticky="nsew", padx=2, pady=2)
+        self.grid_rowconfigure(self.siguiente_fila, weight=1)
+        self.scroll_interno.grid_columnconfigure(0, weight=1)
+
         self._construir()
         self.refrescar()
 
     # -- construcción ------------------------------------------------------------
     def _construir(self):
-        cab = ctk.CTkFrame(self, fg_color="transparent")
+        # Nota: Ahora los elementos internos se empaquetan dentro de self.scroll_interno en lugar de self
+        cab = ctk.CTkFrame(self.scroll_interno, fg_color="transparent")
         cab.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 0))
         cab.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(cab, text=self.p.nombre[0], width=34, height=34, corner_radius=17,
@@ -132,7 +142,7 @@ class TarjetaParticipante(Tarjeta):
 
         # 1. privada
         self._titulo_paso(1, f"1 · Clave privada {self.priv}  (nunca sale de acá)", 1)
-        fila = ctk.CTkFrame(self, fg_color="transparent")
+        fila = ctk.CTkFrame(self.scroll_interno, fg_color="transparent")
         fila.grid(row=2, column=0, sticky="ew", padx=14)
         fila.grid_columnconfigure(0, weight=1)
         self.entrada_priv = ctk.CTkEntry(fila, placeholder_text="número entre 2 y p-2",
@@ -147,31 +157,31 @@ class TarjetaParticipante(Tarjeta):
         # 2. pública
         self._titulo_paso(3, f"2 · Clave pública  {self.pub} = g^{self.priv} mod p", 3)
         self.btn_publica = self._boton(4, f"Calcular {self.pub}", self._calcular_publica)
-        self.campo_pub = CampoValor(self, f"Clave pública {self.pub}", self.color)
+        self.campo_pub = CampoValor(self.scroll_interno, f"Clave pública {self.pub}", self.color)
         self.campo_pub.grid(row=5, column=0, sticky="ew", padx=14, pady=(4, 0))
 
         # 3. enviar / recibir
         self._titulo_paso(6, f"3 · Intercambio por el canal inseguro", 6)
         self.btn_enviar = self._boton(7, f"Enviar {self.pub} a {self.otro}  →", self._enviar)
-        self.campo_recibido = CampoValor(self, f"Recibido de {self.otro}: {self.pub_otro}")
+        self.campo_recibido = CampoValor(self.scroll_interno, f"Recibido de {self.otro}: {self.pub_otro}")
         self.campo_recibido.grid(row=8, column=0, sticky="ew", padx=14, pady=(4, 0))
 
         # 4. secreto
         self._titulo_paso(9, f"4 · Secreto  K = {self.pub_otro}^{self.priv} mod p", 9)
         self.btn_secreto = self._boton(10, "Derivar secreto compartido", self._derivar)
-        self.campo_secreto = CampoValor(self, "Secreto compartido K", tema.OK, destacado=True)
+        self.campo_secreto = CampoValor(self.scroll_interno, "Secreto compartido K", tema.OK, destacado=True)
         self.campo_secreto.grid(row=11, column=0, sticky="ew", padx=14, pady=(4, 0))
 
-        self.lbl_error = ctk.CTkLabel(self, text="", text_color=tema.EVE, font=tema.fuente(11),
+        self.lbl_error = ctk.CTkLabel(self.scroll_interno, text="", text_color=tema.EVE, font=tema.fuente(11),
                                       anchor="w", justify="left", wraplength=320)
         self.lbl_error.grid(row=12, column=0, sticky="ew", padx=14, pady=(2, 6))
 
     def _titulo_paso(self, fila, texto, _):
-        ctk.CTkLabel(self, text=texto, font=tema.fuente(12, "bold"), text_color=tema.TENUE,
+        ctk.CTkLabel(self.scroll_interno, text=texto, font=tema.fuente(12, "bold"), text_color=tema.TENUE,
                      anchor="w").grid(row=fila, column=0, sticky="ew", padx=14, pady=(8, 3))
 
     def _boton(self, fila, texto, cmd):
-        b = ctk.CTkButton(self, text=texto, height=30, font=tema.fuente(13, "bold"),
+        b = ctk.CTkButton(self.scroll_interno, text=texto, height=30, font=tema.fuente(13, "bold"),
                           fg_color=self.color, hover_color=tema.BORDE, text_color="#0b0f18",
                           command=cmd)
         b.grid(row=fila, column=0, sticky="ew", padx=14)
