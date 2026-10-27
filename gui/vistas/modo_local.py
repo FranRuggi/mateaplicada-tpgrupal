@@ -81,7 +81,7 @@ class VistaModoLocal(ctk.CTkFrame):
         bits = int(self.sel_bits.get())
         self.btn_generar.configure(state="disabled", text="Generando…")
         self.lbl_param.configure(text=f"Buscando un primo seguro de {bits} bits…", text_color=tema.TENUE)
-
+        self.update_idletasks()
         def listo(res):
             p, g, pasos = res
             self.entrada_p.delete(0, "end"); self.entrada_p.insert(0, str(p))
