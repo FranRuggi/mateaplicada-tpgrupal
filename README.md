@@ -89,6 +89,11 @@ local no necesita Internet. El modo de salas usa WebSocket para comunicarse.
 
 ## Salas por Internet
 
+Servidor publicado en Render Free:
+[mateaplicada-dh-salas.onrender.com](https://mateaplicada-dh-salas.onrender.com).
+La dirección ya viene en `configuracion.json`. El servicio usa la rama `FranFran`
+del repositorio del grupo; la interfaz sigue en la app de escritorio.
+
 En **Modo red → Internet · salas**, ambas personas usan la dirección del servidor
 publicado. Una toca **Crear sala** y comparte el código; la otra lo ingresa y toca
 **Entrar a sala**. Las tarjetas arcade permiten elegir Alice o Bob. Un personaje

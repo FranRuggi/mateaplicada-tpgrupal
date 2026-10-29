@@ -4,6 +4,23 @@ Servicio FastAPI + WebSocket, preparado para una instancia **Free** de Render.
 La aplicación de escritorio conserva la interfaz arcade, los cálculos y las
 privadas. El servidor solo administra dos plazas por sala y reenvía datos públicos.
 
+## Servicio publicado
+
+- Dirección: https://mateaplicada-dh-salas.onrender.com
+- Salud: https://mateaplicada-dh-salas.onrender.com/health
+- Código fuente: `FranRuggi/mateaplicada-tpgrupal`, rama `FranFran`.
+- Plan: Free. Los despliegues se lanzan manualmente desde Render.
+
+La dirección ya está guardada en `configuracion.json`. Las dos personas pueden
+abrir la app, entrar a **Modo red → Internet · salas** y compartir solo el código
+de la sala. El enlace del servicio es la dirección del servidor; la interfaz
+arcade sigue en la aplicación de escritorio.
+
+Verificado el 29/10/2026 contra el servicio público: `/health`, dos clientes por
+WSS, reserva de Alice y Bob, intercambio de p/g/A/B, derivación local de K en
+ambos clientes y liberación del personaje al desconectarse. Para p=23, g=5,
+a=6 y b=15, se recibieron A=8 y B=19 y cada cliente calculó K=2.
+
 ## Probar en una PC
 
 Desde la raíz del repositorio:
