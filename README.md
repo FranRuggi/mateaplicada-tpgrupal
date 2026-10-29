@@ -221,10 +221,25 @@ posterior de `B` y resultados tardíos después de reiniciar.
 La app de escritorio corre en cada computadora. El modo de salas requiere el
 servidor publicado; el modo local y el intercambio por archivos son independientes.
 
-- Para la demo con dos máquinas, ambas necesitan acceso de lectura y escritura
+- En las salas por Internet, cada persona abre la app en su computadora y
+  comparte el código de sala. No hace falta una carpeta compartida.
+- Para la opción **Archivos .txt**, ambas necesitan acceso de lectura y escritura
   a la carpeta compartida. Para probar en una PC alcanza con abrir dos instancias.
-- Al preparar un `.exe`, incluir `assets` con los personajes y entregar
-  `configuracion.json` con la URL real del servidor junto al ejecutable.
+
+### Generar el ejecutable para Windows
+
+Desde Windows de 64 bits, con el entorno virtual activado:
+
+```powershell
+python -m pip install -r requirements-build.txt
+python herramientas/empaquetar_windows.py
+```
+
+Se genera un ZIP con fecha en `dist/`. Compartir **el ZIP completo**: cada persona
+lo descomprime y abre `DiffieHellman-TP.exe`. Debe conservar `_internal` y
+`configuracion.json` junto al ejecutable. No necesita instalar Python.
+El paquete incluye personajes, animaciones, librerías, servidor configurado y
+`COMO-JUGAR.txt` con los pasos de uso. Cada compilación usa una carpeta nueva.
 
 ## Preguntas para el profe
 

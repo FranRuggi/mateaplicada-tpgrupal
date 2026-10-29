@@ -1,0 +1,45 @@
+DIFFIE-HELLMAN - MATEMATICA APLICADA
+
+ABRIR LA APLICACION
+1. Descomprimi todo el ZIP en una carpeta.
+2. Abri DiffieHellman-TP.exe con doble clic.
+3. Conserva la carpeta _internal y configuracion.json junto al ejecutable.
+No hace falta instalar Python. Para compartirlo, envia el ZIP completo.
+
+JUGAR POR INTERNET EN DOS COMPUTADORAS
+1. Las dos personas abren el programa y entran a Modo red > Internet - salas.
+   El servidor de Render ya viene configurado.
+2. Una persona toca Crear sala y comparte el codigo de 8 caracteres.
+3. La otra escribe ese codigo y toca Entrar a sala.
+4. Cada una elige Alice o Bob. El personaje ocupado no se puede elegir.
+5. Cuando ambos eligieron, comienza la partida.
+
+EL INTERCAMBIO
+- Alice ingresa o genera p y g, y los publica en el canal.
+- Cada participante elige su clave privada y toca Calcular A o Calcular B.
+- Ambos envian su publica con Enviar A o Enviar B.
+- Cuando recibieron la publica del otro, cada uno toca Derivar K.
+- Comparen sus resultados: deben obtener la misma K sin enviarla por el canal.
+
+EVE Y LOS PERSONAJES
+Alice, Bob y Eve ya estan incluidos, con las animaciones del intercambio.
+Eve es la espia de la escena, no ocupa una plaza de la sala.
+Sus datos se completan con los valores publicos que pasan por el canal.
+Para probar que adivine la privada, toca Intentar ataque en la tarjeta de Eve.
+Con numeros pequenos puede encontrarla; con numeros grandes puede agotar el limite.
+
+PRUEBA CORTA
+p=23, g=5, privada de Alice a=6, privada de Bob b=15.
+Se espera A=8, B=19 y K=2 en ambos participantes.
+
+OTRAS OPCIONES
+- Modo local permite controlar a Alice y Bob en una sola ventana, sin Internet.
+- Pueden probar las salas abriendo dos veces el programa en la misma PC.
+- El modo de salas por Internet no necesita una carpeta compartida.
+- Archivos .txt conserva la opcion de intercambio mediante carpeta compartida.
+- La consola se puede colocar abajo o a la derecha y agrandar con el separador.
+
+SERVIDOR GRATUITO
+https://mateaplicada-dh-salas.onrender.com
+La primera conexion puede tardar alrededor de un minuto si Render estaba inactivo.
+Si se corta la conexion o alguien sale, vuelvan a la sala para una partida nueva.
