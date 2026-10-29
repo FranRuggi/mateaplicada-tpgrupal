@@ -271,8 +271,9 @@ python herramientas/empaquetar_windows.py
 Se genera un ZIP con fecha en `dist/`. Compartir **el ZIP completo**: cada persona
 lo descomprime y abre `DiffieHellman-TP.exe`. Debe conservar `_internal` y
 `configuracion.json` junto al ejecutable. No necesita instalar Python.
-El paquete incluye personajes, animaciones, librerías, servidor configurado y
-`COMO-JUGAR.txt` con los pasos de uso. Cada compilación usa una carpeta nueva.
+El paquete incluye personajes, animaciones, librerías, servidor configurado,
+`COMO-JUGAR.txt` con los pasos de uso y `GUIA-DE-ESTUDIO.md`.
+Cada compilación usa una carpeta nueva.
 
 ## Preguntas para el profe
 

@@ -280,6 +280,11 @@ class CanalSocket(Canal):
         except OSError as e:
             if not self._cerrado.is_set():
                 self._error = f"Se cortó la conexión con {self.otro}: {e}"
+        finally:
+            # Liberar la conexión también cuando el otro cierra o falla la lectura.
+            for s in (self._conexion, self._escucha):
+                if s is not None:
+                    s.close()
 
     def _aceptar(self) -> socket.socket | None:
         while not self._cerrado.is_set():
@@ -335,9 +340,11 @@ class CanalSocket(Canal):
     # -- interfaz del canal ------------------------------------------------------
     @property
     def conectado(self) -> bool:
-        return self._conexion is not None and self._error is None
+        return not self._cerrado.is_set() and self._conexion is not None and self._error is None
 
     def estado(self) -> str:
+        if self._cerrado.is_set():
+            return "Desconectado"
         if self._error:
             return self._error
         if self._conexion is not None:

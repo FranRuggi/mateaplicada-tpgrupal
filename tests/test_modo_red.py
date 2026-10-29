@@ -1,5 +1,6 @@
 """Integración de la vista real con dos roles y una carpeta temporal."""
 import tempfile
+import socket
 import time
 import unittest
 
@@ -148,6 +149,44 @@ class ModoRedTests(unittest.TestCase):
         self.alice._publicar_params_red()
         self.assertIsNone(self.alice.yo.p)
         self.assertIn("no es primo", self.alice.lbl_estado.cget("text"))
+
+    def test_tcp_desde_controles_calcula_k_y_detecta_la_desconexion(self):
+        with socket.socket() as reserva:
+            reserva.bind(("127.0.0.1", 0))
+            puerto = reserva.getsockname()[1]
+        for vista in (self.alice, self.bob):
+            vista.sel_tr.set("Sockets TCP")
+            vista._cambiar_transporte("Sockets TCP")
+            vista.entrada_puerto.delete(0, "end")
+            vista.entrada_puerto.insert(0, str(puerto))
+        self.alice.entrada_host.delete(0, "end")
+        self.alice.entrada_host.insert(0, "127.0.0.1")
+        self.bob.btn_conectar.invoke()
+        self.alice.btn_conectar.invoke()
+
+        def esperar(condicion):
+            limite = time.monotonic() + 5
+            while not condicion() and time.monotonic() < limite:
+                self.root.update()
+                time.sleep(.01)
+            self.assertTrue(condicion(), "No se completó el intercambio TCP desde la interfaz")
+
+        esperar(lambda: self.alice.canal.conectado and self.bob.canal.conectado)
+        self.alice._poner_parametros(23, 5)
+        self.alice.btn_pub_red.invoke()
+        esperar(lambda: self.bob.yo.p == 23)
+        for vista, privada in ((self.alice, 6), (self.bob, 15)):
+            vista.tarjeta.entrada_priv.insert(0, str(privada))
+            vista.tarjeta.btn_publica.invoke()
+            vista.tarjeta.btn_enviar.invoke()
+        esperar(lambda: self.alice.yo.publica_ajena == 19 and self.bob.yo.publica_ajena == 8)
+        for vista in (self.alice, self.bob):
+            vista.tarjeta.btn_secreto.invoke()
+            self.assertEqual(vista.yo.secreto, 2)
+            self.assertEqual(vista.datos_para_eve(), {"p": 23, "g": 5, "A": 8})
+        self.bob.btn_desconectar.invoke()
+        esperar(lambda: "desconectó" in self.alice.lbl_estado.cget("text"))
+        self.assertIsNone(self.bob.canal)
 
 
 if __name__ == "__main__":

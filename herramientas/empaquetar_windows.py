@@ -30,6 +30,7 @@ def main():
     paquete = destino / nombre
     shutil.copy2(raiz / "configuracion.json", paquete)
     shutil.copy2(raiz / "distribucion" / "COMO-JUGAR.txt", paquete)
+    shutil.copy2(raiz / "GUIA-DE-ESTUDIO.md", paquete)
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=raiz, check=True,
                               text=True, capture_output=True).stdout.strip()
     versiones = "\n".join(f"{p}={metadata.version(p)}" for p in

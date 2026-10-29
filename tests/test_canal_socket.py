@@ -105,6 +105,15 @@ class CanalSocketTests(unittest.TestCase):
         with self.assertRaisesRegex(ErrorCanal, "Alice se desconectó"):
             self.bob.recibir("Bob")
 
+    def test_cerrar_el_canal_actualiza_el_estado_local_y_es_repetible(self):
+        alice = self.conectar_alice()
+        alice.cerrar()
+        self.assertFalse(alice.conectado)
+        self.assertEqual(alice.estado(), "Desconectado")
+        alice.cerrar()
+        with self.assertRaises(ErrorCanal):
+            alice.enviar(Mensaje("Alice", "Bob", "PUBLICA", {"A": 8}))
+
     def test_validaciones_al_crear(self):
         with self.assertRaises(ValueError):
             CanalSocket("", 5000, es_servidor=False)
