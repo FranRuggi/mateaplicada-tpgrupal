@@ -54,7 +54,7 @@ class VistaInicio(ctk.CTkFrame):
             ("protocolo/sesion.py", "Estados y validaciones de Alice / Bob", "Listo", True),
             ("transporte · CanalMemoria", "Modo local", "Listo", True),
             ("transporte · CanalArchivo", "Cola por carpeta compartida y sesión", "Listo", True),
-            ("transporte · CanalSocket", "Dos computadoras (secundario)", "Pendiente", False),
+            ("transporte · CanalSocket", "TCP directo en la red local (secundario)", "Listo", True),
         ]
         for i, (archivo, desc, txt, ok) in enumerate(modulos):
             fila = estado.siguiente_fila + i

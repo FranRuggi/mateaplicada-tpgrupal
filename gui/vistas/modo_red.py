@@ -1,4 +1,4 @@
-"""Modos de transporte: salas de Internet y la carpeta compartida existente."""
+"""Modos de transporte: salas de Internet, carpeta compartida y sockets en red local."""
 import customtkinter as ctk
 
 from gui import tema
@@ -11,7 +11,7 @@ class VistaModoRed(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
-        self.selector = ctk.CTkSegmentedButton(self, values=["Internet · salas", "Archivos .txt"],
+        self.selector = ctk.CTkSegmentedButton(self, values=["Internet · salas", "Archivos · Sockets"],
                                                 font=tema.fuente(12), command=self.mostrar)
         self.selector.grid(row=0, column=0, sticky="w", pady=(0, 10))
         self.internet = VistaInternet(self)

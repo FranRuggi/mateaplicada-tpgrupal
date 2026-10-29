@@ -21,7 +21,7 @@ En Linux puede hacer falta `sudo apt install python3-tk`. En Windows y Mac viene
 main.py                    punto de entrada
 core/aritmetica.py         potencia modular propia, Miller-Rabin, primos y generadores
 protocolo/sesion.py        Alice/Bob: estados, validaciones, errores amigables
-transporte/canal.py        CanalMemoria ✔ / CanalArchivo con sesiones y confirmación ✔ / CanalSocket ✘
+transporte/canal.py        CanalMemoria ✔ / CanalArchivo con sesiones y confirmación ✔ / CanalSocket (TCP en red local) ✔
 gui/tema.py                colores, fuentes, helper para no congelar la ventana
 gui/componentes.py         tarjeta de participante, panel paso a paso, campos
 gui/escena.py              sprites y cola visual de los eventos del intercambio
@@ -143,7 +143,7 @@ Se pueden abrir dos instancias en una misma PC o una instancia en cada PC.
 Cada participante debe poder leer y escribir en **la misma carpeta física**.
 Las rutas pueden ser distintas en cada equipo (por ejemplo, una unidad de red).
 
-1. Abrir la aplicación dos veces y elegir **Modo red → Archivos .txt**.
+1. Abrir la aplicación dos veces y elegir **Modo red → Archivos · Sockets**.
 2. Elegir **Alice** en una instancia y **Bob** en la otra. Usar **Archivos .txt**.
 3. Seleccionar la carpeta compartida en ambas y escribir el mismo código de
    **Sesión**. `demo` sirve para la primera prueba. El botón **Nuevo** genera
@@ -191,7 +191,31 @@ La sesión separa intercambios, pero no autentica a los participantes.
 
 Ambas instancias deben utilizar esta versión: los archivos con el nombre fijo
 del prototipo (`Alice_a_Bob.txt`) no se consumen ni se borran automáticamente.
-Los sockets TCP siguen pendientes; no hacen falta para este modo.
+
+## Intercambio por sockets en la red local (objetivo secundario)
+
+Conexión TCP directa entre dos computadoras, con `socket` de la biblioteca
+estándar. No usa Internet ni el servidor de Render: las dos PC (o una PC y una
+máquina virtual con red en modo *bridge*) tienen que estar en la **misma red**.
+
+1. En las dos PC: **Modo red → Archivos · Sockets** y en Transporte elegir
+   **Sockets TCP**.
+2. **Bob** elige su rol y toca **Conectar**. Queda escuchando en el puerto
+   (5000 por defecto) y la tarjeta muestra **su IP en la red**.
+3. **Alice** escribe esa IP y el mismo puerto, y toca **Conectar**. Si Bob
+   todavía no estaba escuchando, Alice reintenta cada segundo.
+4. Cuando las dos dicen **Conectado**, seguir los pasos 5 a 7 de la carpeta
+   compartida. El resultado esperado es otra vez `K = 2`.
+
+Los mensajes tienen el mismo formato que los `.txt`, con una línea vacía al
+final para marcar dónde termina cada uno (TCP entrega bytes, no mensajes).
+Un hilo lee el socket y la interfaz consulta lo recibido cada 500 ms, así la
+ventana no se congela. Un mensaje mal formado se descarta sin cortar la
+conexión. Si el otro se desconecta, se informa en el estado.
+
+La primera vez que Bob escucha, Windows puede preguntar por el firewall:
+permitir el acceso en **redes privadas**. Para otro intercambio, desconectar
+ambas y volver a conectar. Para probar en una sola PC, usar la IP `127.0.0.1`.
 
 ## Probar el ataque de Eve sin copiar números
 
@@ -232,6 +256,8 @@ servidor publicado; el modo local y el intercambio por archivos son independient
   comparte el código de sala. No hace falta una carpeta compartida.
 - Para la opción **Archivos .txt**, ambas necesitan acceso de lectura y escritura
   a la carpeta compartida. Para probar en una PC alcanza con abrir dos instancias.
+- Para **Sockets TCP**, ambas tienen que estar en la misma red local y Alice
+  necesita la IP de Bob. Para probar en una PC, usar `127.0.0.1`.
 
 ### Generar el ejecutable para Windows
 
@@ -253,6 +279,6 @@ El paquete incluye personajes, animaciones, librerías, servidor configurado y
 1. "Sin bibliotecas" ¿incluye los enteros grandes nativos de Python (`int` de precisión arbitraria) o hay que implementar la aritmética de números grandes también?
 2. ¿Se puede usar `random` o `secrets` para generar la clave privada y los candidatos a primo, o también hay que hacer un generador propio (por ejemplo, un LCG)?
 3. ¿La GUI puede usar una biblioteca externa (CustomTkinter)? Suponemos que sí, porque la restricción habla de "la matemática modular".
-4. ¿Se puede usar `socket` de la biblioteca estándar para el objetivo secundario?
+4. ¿Se puede usar `socket` de la biblioteca estándar para el objetivo secundario? (Implementado así en `CanalSocket`.)
 5. ¿Qué tamaño de `p` esperan ver en la demo (64, 256, 2048 bits)? Esto define cuánto hay que optimizar Miller-Rabin.
 6. ¿La exposición dura 15 o 25 minutos? El instructivo dice las dos cosas.

@@ -38,6 +38,8 @@ OTRAS OPCIONES
 - Pueden probar las salas abriendo dos veces el programa en la misma PC.
 - El modo de salas por Internet no necesita una carpeta compartida.
 - Archivos .txt conserva la opcion de intercambio mediante carpeta compartida.
+- Sockets TCP conecta dos PC de la misma red sin Internet: Bob toca Conectar
+  y le pasa su IP a Alice, que la escribe y toca Conectar.
 - La consola se puede colocar abajo o a la derecha y agrandar con el separador.
 
 SERVIDOR GRATUITO

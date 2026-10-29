@@ -6,14 +6,17 @@ no sabe si los datos van por memoria, por archivos .txt o por sockets.
 
     CanalMemoria  -> LISTO. Modo local (las dos partes en la misma ventana).
     CanalArchivo  -> Cola por archivos, con confirmación y sesiones.
-    CanalSocket   -> PENDIENTE. Objetivo secundario (dos computadoras).
+    CanalSocket   -> TCP directo en la red local. Objetivo secundario (dos computadoras).
 """
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable
 import os
 from pathlib import Path
 import re
+import socket
+import threading
 import time
 from uuid import uuid4
 
@@ -215,16 +218,178 @@ class CanalArchivo(Canal):
         ruta.replace(rechazados / ruta.name)
 
 
+def ip_local() -> str:
+    """IP de esta computadora en la red local: la que Alice escribe para llegar a Bob."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            # UDP no envía nada al conectar: solo elige la interfaz de salida.
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+        except OSError:
+            return "127.0.0.1"
+
+
 class CanalSocket(Canal):
-    """TODO(transporte): uno escucha (servidor) y el otro se conecta (cliente).
-    Mandar Mensaje.a_texto() terminado en una línea vacía."""
+    """Conexión TCP directa entre dos computadoras de la misma red.
+
+    Bob escucha (servidor) y Alice se conecta (cliente). Cada mensaje viaja como
+    Mensaje.a_texto() seguido de una línea vacía, que marca dónde termina.
+    Un hilo lee la red y deja lo recibido en una cola; la GUI la consulta con
+    recibir() y confirmar(), igual que con CanalArchivo.
+    """
 
     def __init__(self, host: str, puerto: int, es_servidor: bool):
         super().__init__()
-        self.host, self.puerto, self.es_servidor = host, puerto, es_servidor
+        if not 0 <= puerto <= 65535:
+            raise ValueError("El puerto tiene que estar entre 1 y 65535.")
+        if not es_servidor and not host.strip():
+            raise ValueError("Escribí la IP de la computadora de Bob.")
+        self.host, self.es_servidor = host.strip(), es_servidor
+        self.rol, self.otro = ("Bob", "Alice") if es_servidor else ("Alice", "Bob")
+        self._conexion: socket.socket | None = None
+        self._escucha: socket.socket | None = None
+        self._recibidos: deque[Mensaje | ErrorCanal] = deque()
+        self._lock = threading.Lock()
+        self._cerrado = threading.Event()
+        self._error: str | None = None
+        if es_servidor:
+            try:
+                # "" escucha en todas las interfaces de la PC (WiFi, cable, VM).
+                self._escucha = socket.create_server(("", puerto))
+            except OSError as e:
+                raise ErrorCanal(f"No se pudo abrir el puerto {puerto}: {e}") from e
+            self._escucha.settimeout(0.5)
+            puerto = self._escucha.getsockname()[1]
+        self.puerto = puerto
+        threading.Thread(target=self._trabajar, daemon=True).start()
+
+    # -- hilo de red -----------------------------------------------------------
+    def _trabajar(self):
+        try:
+            conexion = self._aceptar() if self.es_servidor else self._conectar()
+            if conexion is None:
+                return
+            with self._lock:
+                if self._cerrado.is_set():
+                    conexion.close()
+                    return
+                self._conexion = conexion
+            self._leer(conexion)
+            if not self._cerrado.is_set():
+                self._error = f"{self.otro} se desconectó."
+        except OSError as e:
+            if not self._cerrado.is_set():
+                self._error = f"Se cortó la conexión con {self.otro}: {e}"
+
+    def _aceptar(self) -> socket.socket | None:
+        while not self._cerrado.is_set():
+            try:
+                conexion, _ = self._escucha.accept()
+            except TimeoutError:
+                continue
+            # Un solo participante por sesión: dejar de escuchar.
+            self._escucha.close()
+            conexion.settimeout(None)
+            return conexion
+        return None
+
+    def _conectar(self) -> socket.socket | None:
+        while not self._cerrado.is_set():
+            try:
+                conexion = socket.create_connection((self.host, self.puerto), timeout=2)
+            except socket.gaierror as e:
+                raise OSError(f"la dirección {self.host!r} no es válida") from e
+            except OSError:
+                # Bob todavía no tocó Conectar: reintentar en un segundo.
+                self._cerrado.wait(1)
+                continue
+            conexion.settimeout(None)
+            return conexion
+        return None
+
+    def _leer(self, conexion: socket.socket):
+        buffer = b""
+        while True:
+            datos = conexion.recv(4096)
+            if not datos:
+                return
+            buffer += datos
+            # TCP entrega bytes, no mensajes: separar por la línea vacía.
+            while b"\n\n" in buffer:
+                bloque, buffer = buffer.split(b"\n\n", 1)
+                self._guardar(bloque)
+            if len(buffer) > 16_384:
+                raise OSError("llegó un mensaje demasiado grande")
+
+    def _guardar(self, bloque: bytes):
+        try:
+            mensaje = Mensaje.desde_texto(bloque.decode("utf-8"))
+            if (mensaje.remitente, mensaje.destinatario) != (self.otro, self.rol):
+                raise ValueError(f"se esperaba un mensaje de {self.otro} para {self.rol}.")
+            recibido: Mensaje | ErrorCanal = mensaje
+        except (ValueError, UnicodeError) as e:
+            recibido = ErrorCanal(f"Mensaje inválido descartado: {e}")
+        with self._lock:
+            self._recibidos.append(recibido)
+
+    # -- interfaz del canal ------------------------------------------------------
+    @property
+    def conectado(self) -> bool:
+        return self._conexion is not None and self._error is None
+
+    def estado(self) -> str:
+        if self._error:
+            return self._error
+        if self._conexion is not None:
+            return f"Conectado con {self.otro}"
+        if self.es_servidor:
+            return f"Esperando que {self.otro} se conecte a {ip_local()}:{self.puerto}…"
+        return f"Buscando a {self.otro} en {self.host}:{self.puerto}…"
 
     def enviar(self, mensaje: Mensaje):
-        raise NotImplementedError("Canal por sockets todavía no implementado.")
+        texto = mensaje.a_texto()
+        if not self.conectado:
+            raise ErrorCanal(f"Todavía no hay conexión. {self.estado()}")
+        try:
+            self._conexion.sendall((texto + "\n").encode("utf-8"))
+        except OSError as e:
+            raise ErrorCanal(f"No se pudo enviar a {self.otro}: {e}") from e
+        self._notificar(mensaje)
 
     def recibir(self, destinatario: str) -> Mensaje | None:
-        raise NotImplementedError("Canal por sockets todavía no implementado.")
+        if destinatario != self.rol:
+            raise ValueError(f"Este canal recibe solo los mensajes para {self.rol}.")
+        with self._lock:
+            if self._recibidos and isinstance(self._recibidos[0], ErrorCanal):
+                raise self._recibidos.popleft()
+            if self._recibidos:
+                return self._recibidos[0]
+        if self._error:
+            raise ErrorCanal(self._error)
+        return None
+
+    def _retirar(self, mensaje: Mensaje):
+        with self._lock:
+            if not self._recibidos or self._recibidos[0] is not mensaje:
+                raise ValueError("El mensaje no está pendiente de confirmación en este canal.")
+            self._recibidos.popleft()
+
+    def confirmar(self, mensaje: Mensaje):
+        self._retirar(mensaje)
+
+    def rechazar(self, mensaje: Mensaje):
+        self._retirar(mensaje)
+
+    def posponer(self, mensaje: Mensaje):
+        """TCP conserva el orden: el mensaje queda primero para el próximo intento."""
+
+    def cerrar(self):
+        self._cerrado.set()
+        with self._lock:
+            sockets = [s for s in (self._conexion, self._escucha) if s is not None]
+        for s in sockets:
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            s.close()

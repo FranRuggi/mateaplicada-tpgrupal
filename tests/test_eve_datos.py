@@ -23,7 +23,7 @@ class DatosEveTests(unittest.TestCase):
 
     def setUp(self):
         self.local = self.app.vistas["local"]
-        self.app.vistas["red"].mostrar("Archivos .txt")
+        self.app.vistas["red"].mostrar("Archivos · Sockets")
         self.red = self.app.vistas["red"].archivos
         self.eve = self.app.vistas["eve"]
         self.local.reiniciar()

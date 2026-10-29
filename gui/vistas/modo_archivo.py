@@ -1,5 +1,5 @@
-"""Modo red: una instancia por rol y una cola en una carpeta compartida.
-Los sockets TCP quedan reservados para una ampliación posterior.
+"""Modo red: una instancia por rol, por carpeta compartida o por socket TCP
+directo entre dos computadoras de la misma red.
 """
 from core import aritmetica
 import customtkinter as ctk
@@ -9,7 +9,14 @@ from uuid import uuid4
 from gui import tema
 from gui.componentes import PanelPasos, Tarjeta, TarjetaParticipante
 from protocolo.sesion import ErrorProtocolo, Participante
-from transporte.canal import CanalArchivo, ErrorCanal, Mensaje
+from transporte.canal import CanalArchivo, CanalSocket, ErrorCanal, Mensaje, ip_local
+
+AYUDA_ARCHIVO = ("Usen la misma carpeta y sesión.\nAlice publica p y g primero.\n"
+                 "La recepción es automática.\nPara otro intercambio, usen otra sesión.")
+AYUDA_SOCKET = ("Las dos PCs tienen que estar en la misma red.\nBob le pasa su IP a Alice; "
+                "Alice reintenta hasta encontrarlo.\nSi Windows pregunta por el firewall, "
+                "permitan el acceso en redes privadas.\nPara otro intercambio, desconecten y "
+                "vuelvan a conectar.")
 
 
 class VistaModoArchivo(ctk.CTkFrame):
@@ -23,6 +30,7 @@ class VistaModoArchivo(ctk.CTkFrame):
         self._sondeo = None
         self._generando = False
         self._ultimo_error = None
+        self._socket_listo = False
         self._publicos_eve: dict[str, int] = {}
 
         self._panel_config().grid(row=0, column=0, sticky="nsew")
@@ -137,11 +145,10 @@ class VistaModoArchivo(ctk.CTkFrame):
                                        font=tema.fuente(12), anchor="w", justify="left", wraplength=250)
         self.lbl_estado.grid(row=f + 7, column=0, sticky="ew", padx=16)
 
-        ctk.CTkLabel(t, text="Usen la misma carpeta y sesión.\nAlice publica p y g primero.\n"
-                            "La recepción es automática.\nPara otro intercambio, usen otra sesión.",
-                     font=tema.fuente(11), text_color=tema.TENUE, justify="left", anchor="w",
-                     wraplength=240).grid(
-            row=f + 8, column=0, sticky="ew", padx=16, pady=(12, 12))
+        self.lbl_ayuda = ctk.CTkLabel(t, text=AYUDA_ARCHIVO, font=tema.fuente(11),
+                                      text_color=tema.TENUE, justify="left", anchor="w",
+                                      wraplength=240)
+        self.lbl_ayuda.grid(row=f + 8, column=0, sticky="ew", padx=16, pady=(12, 12))
         # --- BOTÓN DE RECEPCIÓN (Para Bob o Alice) ---
         self.btn_recibir = ctk.CTkButton(t, text="📥 Buscar mensajes nuevos", height=28,
                                          fg_color=tema.PANEL_2, text_color=tema.TEXTO,
@@ -181,8 +188,11 @@ class VistaModoArchivo(ctk.CTkFrame):
     def _verificar_mensajes(self, manual=True):
         if self.canal is None:
             if manual:
-                self._mostrar_error("Primero conectá la carpeta compartida.")
+                self._mostrar_error("Primero conectá el canal.")
             return
+        if isinstance(self.canal, CanalSocket) and self.canal.conectado and not self._socket_listo:
+            self._socket_listo = True
+            self._log(f"Conexión TCP establecida con {self.canal.otro}.")
         recibidos, hubo_error, esperando = 0, False, False
         # Limitar el lote para devolver el control a la interfaz entre sondeos.
         for _ in range(20):
@@ -215,8 +225,12 @@ class VistaModoArchivo(ctk.CTkFrame):
         self._actualizar_controles()
         if not hubo_error:
             self._ultimo_error = None
-            texto = "Esperando los parámetros de Alice…" if esperando else "Recepción automática activa"
-            self.lbl_estado.configure(text=f"● Conectado · {texto}", text_color=tema.OK)
+            if isinstance(self.canal, CanalSocket) and not self.canal.conectado:
+                texto, color = self.canal.estado(), tema.AVISO
+            else:
+                texto = "Esperando los parámetros de Alice…" if esperando else "Recepción automática activa"
+                texto, color = f"Conectado · {texto}", tema.OK
+            self.lbl_estado.configure(text=f"● {texto}", text_color=color)
             if manual and not recibidos and not esperando:
                 self._log("No hay mensajes pendientes.")
 
@@ -237,7 +251,7 @@ class VistaModoArchivo(ctk.CTkFrame):
     def _publicar_params_red(self):
         try:
             if self.canal is None:
-                raise ErrorProtocolo("Primero conectá la carpeta compartida.")
+                raise ErrorProtocolo("Primero conectá el canal.")
             if self.yo.nombre != "Alice":
                 raise ErrorProtocolo("Alice es quien publica los parámetros.")
             p = int(self.entrada_p_red.get())
@@ -293,11 +307,13 @@ class VistaModoArchivo(ctk.CTkFrame):
         self.op_archivo.grid_forget(); self.op_socket.grid_forget()
         opc = self.op_archivo if valor.startswith("Archivos") else self.op_socket
         opc.grid(row=self.fila_opciones, column=0, sticky="ew", padx=16, pady=(12, 0))
+        self.lbl_ayuda.configure(text=AYUDA_ARCHIVO if valor.startswith("Archivos") else AYUDA_SOCKET)
         self._texto_servidor()
 
     def _texto_servidor(self):
         if self.sel_rol.get() == "Bob":
-            self.lbl_srv.configure(text="Bob escucha (servidor) en el puerto indicado.")
+            self.lbl_srv.configure(text=f"Bob escucha (servidor) en el puerto indicado.\n"
+                                        f"Tu IP en la red: {ip_local()} → pasásela a Alice.")
         else:
             self.lbl_srv.configure(text="Alice se conecta (cliente) a la IP de Bob.")
 
@@ -313,14 +329,23 @@ class VistaModoArchivo(ctk.CTkFrame):
         try:
             if self.sel_tr.get().startswith("Archivos"):
                 canal = CanalArchivo(self.entrada_carpeta.get(), self.entrada_sesion.get().strip())
+                detalle = f"Sesión: {canal.sesion}\nCarpeta: {canal.carpeta}"
+                estado, color = "Conectado · recepción automática", tema.OK
             else:
-                raise ErrorProtocolo("Sockets TCP está pendiente. Usá 'Archivos .txt'.")
+                puerto = self.entrada_puerto.get().strip()
+                if not puerto.isdigit() or not 1 <= int(puerto) <= 65535:
+                    raise ValueError("El puerto tiene que ser un número entre 1 y 65535.")
+                canal = CanalSocket(self.entrada_host.get(), int(puerto),
+                                    es_servidor=self.yo.nombre == "Bob")
+                detalle = canal.estado()
+                estado, color = canal.estado(), tema.AVISO
             self.canal = canal
+            self._socket_listo = False
             self.yo.reiniciar()
             self.tarjeta.refrescar()
             self._ultimo_error = None
-            self.lbl_estado.configure(text="● Conectado · recepción automática", text_color=tema.OK)
-            self._log(f"Conectado como {self.yo.nombre}. Sesión: {canal.sesion}\nCarpeta: {canal.carpeta}")
+            self.lbl_estado.configure(text=f"● {estado}", text_color=color)
+            self._log(f"Conectado como {self.yo.nombre}. {detalle}")
             self._actualizar_controles()
             self._sondeo = self.after(500, self._sondear)
         except (ErrorProtocolo, ErrorCanal, OSError, ValueError) as e:
@@ -336,9 +361,12 @@ class VistaModoArchivo(ctk.CTkFrame):
 
     def _desconectar(self, avisar=True):
         conectado = self.canal is not None
+        por_socket = isinstance(self.canal, CanalSocket)
         if self._sondeo is not None:
             self.after_cancel(self._sondeo)
             self._sondeo = None
+        if por_socket:
+            self.canal.cerrar()
         self.canal = None
         self._publicos_eve.clear()
         self._ultimo_error = None
@@ -349,7 +377,8 @@ class VistaModoArchivo(ctk.CTkFrame):
         if hasattr(self, "yo"):
             self._actualizar_controles()
         if conectado and avisar:
-            self._log("Desconectado. Los mensajes pendientes siguen en la carpeta.")
+            self._log("Desconectado. Se cerró el socket." if por_socket else
+                      "Desconectado. Los mensajes pendientes siguen en la carpeta.")
 
     def _nueva_sesion(self):
         self.entrada_sesion.delete(0, "end")
@@ -359,8 +388,10 @@ class VistaModoArchivo(ctk.CTkFrame):
         conectado = self.canal is not None
         config = "disabled" if conectado or self._generando else "normal"
         for control in (self.sel_rol, self.sel_tr, self.entrada_carpeta, self.btn_carpeta,
-                        self.entrada_sesion, self.btn_sesion):
+                        self.entrada_sesion, self.btn_sesion, self.entrada_puerto):
             control.configure(state=config)
+        # Bob escucha en su propia PC: no necesita la IP del otro.
+        self.entrada_host.configure(state="disabled" if self.yo.nombre == "Bob" else config)
         self.btn_conectar.configure(state=config)
         self.btn_desconectar.configure(state="normal" if conectado else "disabled")
         self.btn_recibir.configure(state="normal" if conectado else "disabled")
@@ -379,12 +410,14 @@ class VistaModoArchivo(ctk.CTkFrame):
         if self._sondeo is not None:
             self.after_cancel(self._sondeo)
             self._sondeo = None
+        if isinstance(self.canal, CanalSocket):
+            self.canal.cerrar()
         self.canal = None
         super().destroy()
 
     def _enviar(self, quien):
         if self.canal is None:
-            raise ErrorProtocolo("Primero conectá la carpeta compartida.")
+            raise ErrorProtocolo("Primero conectá el canal.")
         clave = "A" if quien.nombre == "Alice" else "B"
         m = Mensaje(quien.nombre, "Bob" if clave == "A" else "Alice", "PUBLICA", {clave: quien.publica})
         self.canal.enviar(m)
