@@ -9,10 +9,11 @@ No hace falta instalar Python. Para compartirlo, envia el ZIP completo.
 JUGAR POR INTERNET EN DOS COMPUTADORAS
 1. Las dos personas abren el programa y entran a Modo red > Internet - salas.
    El servidor de Render ya viene configurado.
-2. Una persona toca Crear sala y comparte el codigo de 8 caracteres.
-3. La otra escribe ese codigo y toca Entrar a sala.
-4. Cada una elige Alice o Bob. El personaje ocupado no se puede elegir.
-5. Cuando ambos eligieron, comienza la partida.
+2. Paso 1 - Sala: una persona toca Crear sala y comparte el codigo de 8 caracteres.
+   La otra escribe ese codigo y toca Entrar a sala.
+3. Paso 2 - Personaje: recien dentro de la sala aparecen las tarjetas.
+   Cada una elige Alice o Bob. El personaje ocupado no se puede elegir.
+4. Paso 3 - Partida: cuando ambos eligieron, comienza automaticamente.
 
 EL INTERCAMBIO
 - Alice ingresa o genera p y g, y los publica en el canal.

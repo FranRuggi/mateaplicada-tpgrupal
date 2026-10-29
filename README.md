@@ -94,11 +94,18 @@ Servidor publicado en Render Free:
 La dirección ya viene en `configuracion.json`. El servicio usa la rama `FranFran`
 del repositorio del grupo; la interfaz sigue en la app de escritorio.
 
-En **Modo red → Internet · salas**, ambas personas usan la dirección del servidor
-publicado. Una toca **Crear sala** y comparte el código; la otra lo ingresa y toca
-**Entrar a sala**. Las tarjetas arcade permiten elegir Alice o Bob. Un personaje
-ocupado queda deshabilitado y el servidor evita reservas simultáneas del mismo rol.
-Cuando ambos eligieron, comienza la partida en las dos PC.
+En **Modo red → Internet · salas**, el flujo tiene tres pasos separados:
+
+1. **Sala:** una persona toca **Crear sala** y comparte el código; la otra lo
+   ingresa y toca **Entrar a sala**. Durante la conexión se puede cancelar.
+2. **Personaje:** recién dentro de la sala aparecen las tarjetas para elegir
+   Alice o Bob y el código para compartir. Un personaje ocupado queda
+   deshabilitado y el servidor evita reservas simultáneas del mismo rol.
+3. **Partida:** cuando ambos eligieron, comienza automáticamente en las dos PC.
+
+El paso actual queda marcado en la parte superior. Al salir de la sala se vuelve
+al primer paso. Si se retira la otra persona, se vuelve a la elección conservando
+el personaje propio.
 
 Cada persona controla su privada y su cálculo de K. La tarjeta del otro personaje
 es de solo lectura: muestra los datos públicos, sin recibir su privada o secreto.

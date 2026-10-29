@@ -46,19 +46,32 @@ class PartidaInternetTests(unittest.TestCase):
         self.assertTrue(condicion(), "No se completó el flujo de sala")
 
     def entrar(self):
+        for vista in (self.a, self.b):
+            self.assertEqual(vista.paso_actual, "sala")
+            self.assertEqual(vista.paso_sala.winfo_manager(), "grid")
+            self.assertEqual(vista.paso_personaje.winfo_manager(), "")
         self.a.btn_crear.invoke()
         self.esperar(lambda: self.a.estado is not None)
+        self.assertEqual(self.a.paso_actual, "personaje")
+        self.assertEqual(self.a.paso_sala.winfo_manager(), "")
+        self.assertEqual(self.a.paso_personaje.winfo_manager(), "grid")
         codigo = self.a.estado["sala"]
         self.b.entrada_codigo.insert(0, codigo)
         self.b.btn_unir.invoke()
         self.esperar(lambda: self.b.estado is not None)
+        self.assertEqual(self.b.paso_actual, "personaje")
         self.a.botones_rol["Alice"].invoke()
         self.esperar(lambda: self.b.estado["roles"]["Alice"])
+        self.assertEqual(self.a.paso_actual, "personaje")
+        self.assertIsNone(self.a.partida)
         self.assertEqual(self.b.botones_rol["Alice"].cget("state"), "disabled")
         self.assertEqual(self.b.botones_rol["Bob"].cget("state"), "normal")
         self.b.botones_rol["Bob"].invoke()
         self.esperar(lambda: self.a.partida is not None and self.b.partida is not None)
         for vista in (self.a, self.b):
+            self.assertEqual(vista.paso_actual, "partida")
+            self.assertEqual(vista.lobby.grid_info(), {})
+            self.assertEqual(vista.partida.winfo_manager(), "grid")
             vista.partida.escena.establecer_animaciones(False)
         return self.a.partida, self.b.partida
 
@@ -104,6 +117,10 @@ class PartidaInternetTests(unittest.TestCase):
         codigo = self.a.estado["sala"]
         self.b.salir()
         self.esperar(lambda: self.a.partida is None)
+        self.assertEqual(self.a.paso_actual, "personaje")
+        self.assertEqual(self.a.paso_sala.winfo_manager(), "")
+        self.assertEqual(self.a.paso_personaje.winfo_manager(), "grid")
+        self.assertEqual(self.b.paso_actual, "sala")
         self.assertEqual(self.a.estado["rol"], "Alice")
         self.assertFalse(self.a.estado["roles"]["Bob"])
         self.assertEqual(self.a.datos_para_eve(), {})
@@ -122,6 +139,23 @@ class PartidaInternetTests(unittest.TestCase):
         self.a.btn_unir.invoke()
         self.esperar(lambda: "no existe" in self.a.lbl_estado.cget("text"))
         self.assertIsNone(self.a.cliente)
+        self.assertEqual(self.a.btn_crear.cget("state"), "normal")
+        self.assertEqual(self.a.paso_actual, "sala")
+        self.assertEqual(self.a.paso_personaje.winfo_manager(), "")
+
+    def test_puede_cancelar_la_conexion_sin_mostrar_la_eleccion_antes_de_entrar(self):
+        with patch("gui.vistas.internet.ClienteSalas") as cliente:
+            self.a.btn_crear.invoke()
+            self.assertEqual(self.a.paso_actual, "sala")
+            self.assertEqual(self.a.paso_personaje.winfo_manager(), "")
+            self.assertEqual(self.a.btn_cancelar.winfo_manager(), "grid")
+            self.a.elegir("Alice")
+            cliente.return_value.enviar.assert_not_called()
+            self.a.btn_cancelar.invoke()
+            cliente.return_value.cerrar.assert_called_once()
+        self.assertIsNone(self.a.cliente)
+        self.assertEqual(self.a.paso_actual, "sala")
+        self.assertEqual(self.a.btn_cancelar.winfo_manager(), "")
         self.assertEqual(self.a.btn_crear.cget("state"), "normal")
 
 
