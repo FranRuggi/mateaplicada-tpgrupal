@@ -29,8 +29,8 @@ class VistaInicio(ctk.CTkFrame):
 
         accesos = [("Modo local", "Alice, Bob y Eve en la misma pantalla. Ideal para la demo y "
                                   "para explicar el protocolo paso a paso.", "local", tema.ALICE),
-                   ("Modo red", "Cada computadora juega un rol. Intercambio por archivos .txt "
-                                "o por sockets TCP.", "red", tema.BOB),
+                   ("Modo red", "Creá una sala por Internet, elegí Alice o Bob y compartí "
+                                "el código. También se mantiene la carpeta compartida.", "red", tema.BOB),
                    ("Ataque de Eve", "Intento de fuerza bruta del logaritmo discreto: por qué "
                                      "p tiene que ser grande.", "eve", tema.EVE)]
         for i, (titulo, desc, destino, color) in enumerate(accesos):
@@ -53,7 +53,7 @@ class VistaInicio(ctk.CTkFrame):
              "MOCK · usa pow() de Python" if aritmetica.MOCK else "Implementado", not aritmetica.MOCK),
             ("protocolo/sesion.py", "Estados y validaciones de Alice / Bob", "Listo", True),
             ("transporte · CanalMemoria", "Modo local", "Listo", True),
-            ("transporte · CanalArchivo", "Intercambio por .txt (obligatorio)", "Pendiente", False),
+            ("transporte · CanalArchivo", "Cola por carpeta compartida y sesión", "Listo", True),
             ("transporte · CanalSocket", "Dos computadoras (secundario)", "Pendiente", False),
         ]
         for i, (archivo, desc, txt, ok) in enumerate(modulos):

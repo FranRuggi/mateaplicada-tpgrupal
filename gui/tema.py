@@ -1,6 +1,7 @@
 """Colores, tipografías y helpers visuales compartidos por todas las vistas."""
 import sys
 import threading
+from tkinter import Misc
 
 import customtkinter as ctk
 
@@ -46,6 +47,19 @@ def formatear(n: int | None, max_largo: int = 26) -> str:
 def correr_en_hilo(widget, fn, al_terminar, al_fallar):
     """Corre fn() en un hilo sin congelar la ventana y vuelve al hilo de Tk."""
     resultado = {}
+    destruido = False
+    pendiente = None
+
+    def al_destruir(evento):
+        nonlocal destruido, pendiente
+        if evento.widget is widget:
+            destruido = True
+            if pendiente is not None:
+                widget.after_cancel(pendiente)
+                pendiente = None
+
+    # Bind al frame real: CTkFrame.bind() redirige al canvas interior.
+    vinculo = Misc.bind(widget, "<Destroy>", al_destruir, add="+")
 
     def trabajo():
         try:
@@ -57,11 +71,17 @@ def correr_en_hilo(widget, fn, al_terminar, al_fallar):
     hilo.start()
 
     def revisar():
+        nonlocal pendiente
+        pendiente = None
+        if destruido or not widget.winfo_exists():
+            return
         if hilo.is_alive():
-            widget.after(60, revisar)
-        elif "error" in resultado:
-            al_fallar(resultado["error"])
+            pendiente = widget.after(60, revisar)
         else:
-            al_terminar(resultado["ok"])
+            Misc.unbind(widget, "<Destroy>", vinculo)
+            if "error" in resultado:
+                al_fallar(resultado["error"])
+            else:
+                al_terminar(resultado["ok"])
 
-    widget.after(60, revisar)
+    pendiente = widget.after(60, revisar)

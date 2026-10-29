@@ -150,19 +150,31 @@ def generar_privada(p: int) -> int:
 # Ataque (para la vista de Eve)
 # ---------------------------------------------------------------------------
 def log_discreto_fuerza_bruta(g: int, objetivo: int, p: int, max_intentos: int,
-                              cancelado=lambda: False) -> tuple[int | None, int]:
+                              cancelado=lambda: False,
+                              al_progresar=None) -> tuple[int | None, int]:
     """Busca x tal que g^x ≡ objetivo (mod p) probando x = 1, 2, 3...
 
     Devuelve (x o None, intentos realizados). Esta función ya no usa
-    bibliotecas: solo multiplicación y resto.
+    bibliotecas: solo multiplicación y resto. El callback opcional informa el
+    número de intentos y el resto real del último candidato, desde el hilo que
+    ejecuta la búsqueda. No debe tocar widgets de la interfaz.
     """
     actual = 1
+    if cancelado():
+        return None, 0
     for x in range(1, max_intentos + 1):
         actual = (actual * g) % p
         if actual == objetivo:
+            if al_progresar:
+                al_progresar(x, actual)
             return x, x
-        if x % 50_000 == 0 and cancelado():
-            return None, x
+        if x % 5_000 == 0:
+            if al_progresar:
+                al_progresar(x, actual)
+            if cancelado():
+                return None, x
+    if al_progresar and max_intentos % 5_000:
+        al_progresar(max_intentos, actual)
     return None, max_intentos
 
 

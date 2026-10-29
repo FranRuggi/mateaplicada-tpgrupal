@@ -32,7 +32,7 @@ class App(ctk.CTk):
             "inicio": VistaInicio(self.contenido, self.mostrar),
             "local": VistaModoLocal(self.contenido, self._abrir_eve),
             "red": VistaModoRed(self.contenido),
-            "eve": VistaEve(self.contenido),
+            "eve": VistaEve(self.contenido, obtener_datos=self._datos_para_eve),
         }
         self.mostrar("inicio")
 
@@ -65,5 +65,8 @@ class App(ctk.CTk):
         self.vistas[clave].grid(row=0, column=0, sticky="nsew")
 
     def _abrir_eve(self, datos):
-        self.vistas["eve"].cargar(datos)
+        self.vistas["eve"].cargar(datos, origen="Modo local")
         self.mostrar("eve")
+
+    def _datos_para_eve(self, origen):
+        return self.vistas[origen].datos_para_eve()

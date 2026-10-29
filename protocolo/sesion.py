@@ -81,6 +81,8 @@ class Participante:
         # Validación: valores 0, 1 o p-1 harían trivial el secreto.
         if not 1 < valor < self.p - 1:
             raise ErrorProtocolo("La clave pública recibida es inválida (fuera de 2..p-2).")
+        if self.publica_ajena != valor:
+            self.secreto = None
         self.publica_ajena = valor
 
     def derivar_secreto(self) -> tuple[int, list[Paso]]:

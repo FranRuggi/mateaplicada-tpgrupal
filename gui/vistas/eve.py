@@ -14,17 +14,39 @@ from gui.componentes import Tarjeta
 
 
 class VistaEve(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, obtener_datos=None):
         super().__init__(master, fg_color="transparent")
         self.grid_columnconfigure((0, 1), weight=1, uniform="c")
         self.grid_rowconfigure(0, weight=1)
         self._cancelar = False
+        self._obtener_datos = obtener_datos
+        self._buscando = False
+        self._estado_origen = ("Podés traer un intercambio o ingresar los datos a mano.", tema.TENUE)
 
         izq = Tarjeta(self, "Ataque por fuerza bruta",
                       "Eve conoce p, g y A. Prueba x = 1, 2, 3… hasta que g^x mod p = A.",
                       color=tema.EVE)
         izq.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         f = izq.siguiente_fila
+        ctk.CTkLabel(izq, text="Traer datos públicos", font=tema.fuente(12, "bold"),
+                     text_color=tema.TENUE, anchor="w").grid(
+            row=f, column=0, sticky="ew", padx=16, pady=(12, 4))
+        origenes = ctk.CTkFrame(izq, fg_color="transparent")
+        origenes.grid(row=f + 1, column=0, sticky="ew", padx=16)
+        origenes.grid_columnconfigure((0, 1), weight=1)
+        self.btn_local = ctk.CTkButton(origenes, text="Traer de Modo local", width=150,
+                                       fg_color=tema.PANEL_2, hover_color=tema.BORDE,
+                                       command=lambda: self._traer_datos("local"))
+        self.btn_local.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        self.btn_red = ctk.CTkButton(origenes, text="Traer de Modo red", width=150,
+                                     fg_color=tema.PANEL_2, hover_color=tema.BORDE,
+                                     command=lambda: self._traer_datos("red"))
+        self.btn_red.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        self.lbl_origen = ctk.CTkLabel(izq, text="Podés traer un intercambio o ingresar los datos a mano.",
+                                       font=tema.fuente(11), text_color=tema.TENUE, anchor="w",
+                                       justify="left", wraplength=360)
+        self.lbl_origen.grid(row=f + 2, column=0, sticky="ew", padx=16, pady=(6, 2))
+        f += 3
         self.entradas = {}
         for i, (k, ayuda) in enumerate([("p", "primo público"), ("g", "generador"),
                                         ("A", "clave pública interceptada")]):
@@ -52,14 +74,52 @@ class VistaEve(ctk.CTkFrame):
                                         corner_radius=10, wrap="word")
         self.resultado.grid(row=der.siguiente_fila, column=0, sticky="nsew", padx=12, pady=(4, 12))
         der.grid_rowconfigure(der.siguiente_fila, weight=1)
-        self._escribir("Cargá p, g y A (o venite desde el modo local con\n"
-                       "'Intentar el ataque de Eve') y tocá 'Intentar romper'.")
+        self._escribir("Traé p, g y A desde Modo local o Modo red, o ingresalos a mano.\n"
+                       "Después tocá 'Intentar romper'.")
+        self._set_buscando(False)
 
-    def cargar(self, datos: dict):
+    def _traer_datos(self, origen):
+        if self._buscando or self._obtener_datos is None:
+            return
+        datos = self._obtener_datos(origen)
+        nombre = "Modo local" if origen == "local" else "Modo red"
+        self.cargar(datos, origen=nombre)
+
+    def cargar(self, datos: dict, origen="Modo local"):
+        if self._buscando:
+            self.lbl_origen.configure(text="Esperá a que termine la búsqueda para cambiar los datos.",
+                                       text_color=tema.AVISO)
+            return
+        faltantes = []
         for k, e in self.entradas.items():
-            if k in datos:
-                e.delete(0, "end")
+            # Limpiar todos los campos para no mezclar intercambios distintos.
+            e.delete(0, "end")
+            if type(datos.get(k)) is int:
                 e.insert(0, str(datos[k]))
+            else:
+                faltantes.append(k)
+        if faltantes:
+            texto = (f"{origen}: faltan {', '.join(faltantes)}. "
+                     "Publicá los parámetros y enviá A desde Alice.")
+            color = tema.AVISO
+        else:
+            texto = f"Datos públicos cargados desde {origen}: p, g y A."
+            color = tema.OK
+        self.lbl_origen.configure(text=texto, text_color=color)
+        self._estado_origen = (texto, color)
+        self._escribir(texto)
+
+    def _set_buscando(self, activo):
+        self._buscando = activo
+        if not activo:
+            self.lbl_origen.configure(text=self._estado_origen[0], text_color=self._estado_origen[1])
+        self.btn.configure(state="disabled" if activo else "normal",
+                           text="Buscando…" if activo else "Intentar romper")
+        for boton in (self.btn_local, self.btn_red):
+            boton.configure(state="normal" if not activo and self._obtener_datos else "disabled")
+        for entrada in self.entradas.values():
+            entrada.configure(state="disabled" if activo else "normal")
+        self.sel_max.configure(state="disabled" if activo else "normal")
 
     def _escribir(self, texto, agregar=False):
         self.resultado.configure(state="normal")
@@ -69,13 +129,15 @@ class VistaEve(ctk.CTkFrame):
         self.resultado.configure(state="disabled")
 
     def _atacar(self):
+        if self._buscando:
+            return
         try:
             p, g, A = (int(self.entradas[k].get()) for k in ("p", "g", "A"))
         except ValueError:
             self._escribir("⚠ p, g y A tienen que ser números enteros.")
             return
         maximo = {"10 mil": 10_000, "1 millón": 1_000_000, "10 millones": 10_000_000}[self.sel_max.get()]
-        self.btn.configure(state="disabled", text="Buscando…")
+        self._set_buscando(True)
         self._escribir(f"p tiene {p.bit_length()} bits. Probando hasta {maximo:,} exponentes…")
         inicio = time.perf_counter()
 
@@ -83,7 +145,7 @@ class VistaEve(ctk.CTkFrame):
             x, intentos = res
             seg = max(time.perf_counter() - inicio, 1e-6)
             vel = intentos / seg
-            self.btn.configure(state="normal", text="Intentar romper")
+            self._set_buscando(False)
             if x is not None:
                 self._escribir(f"\n✔ ¡Eve encontró la clave privada!\n   a = {x}\n"
                                f"   en {intentos:,} intentos ({seg:.2f} s)\n\n"
@@ -106,4 +168,4 @@ class VistaEve(ctk.CTkFrame):
 
         tema.correr_en_hilo(
             self, lambda: aritmetica.log_discreto_fuerza_bruta(g, A, p, maximo), listo,
-            lambda e: (self._escribir(f"⚠ {e}"), self.btn.configure(state="normal", text="Intentar romper")))
+            lambda e: (self._escribir(f"⚠ {e}"), self._set_buscando(False)))
