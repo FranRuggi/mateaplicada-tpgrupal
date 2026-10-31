@@ -180,7 +180,7 @@ class VistaModoLocal(AreaConRegistro):
                 return
             self.btn_generar.configure(state="normal", text="Generar p y g")
             self.lbl_param.configure(text=f"⚠ {e}", text_color=tema.EVE)
-
+        self.update_idletasks()
         tema.correr_en_hilo(self, lambda: aritmetica.generar_parametros(bits), listo, fallo)
 
     def _publicar_parametros(self):
