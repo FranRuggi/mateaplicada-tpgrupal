@@ -284,7 +284,23 @@ servidor publicado; el modo local y el intercambio por archivos son independient
 - Para **Sockets TCP**, ambas tienen que estar en la misma red local y Alice
   necesita la IP de Bob. Para probar en una PC, usar `127.0.0.1`.
 
-### Generar el ejecutable para Windows
+### Descargar el ejecutable para Windows
+
+Descargar **[DiffieHellman-TP.exe](https://github.com/FranRuggi/mateaplicada-tpgrupal/releases/latest/download/DiffieHellman-TP.exe)**
+desde GitHub Releases y abrirlo con doble clic. Es un archivo único para Windows
+de 64 bits: incluye Python, librerías, personajes y configuración de Render.
+No requiere ZIP, carpeta `_internal` ni instalar Python para jugar.
+
+### Generar el ejecutable manualmente
+
+Con Python **3.14 de 64 bits** instalado, abrir `generar_exe.cmd` desde la raíz
+del repositorio. Crea `.venv-build`, instala las dependencias de compilación y
+genera el exe único dentro de una carpeta nueva de `dist/`. También se puede
+ejecutar desde PowerShell:
+
+```powershell
+.\generar_exe.cmd
+```
 
 Desde Windows de 64 bits, con el entorno virtual activado:
 
@@ -293,12 +309,18 @@ python -m pip install -r requirements-build.txt
 python herramientas/empaquetar_windows.py
 ```
 
-Se genera un ZIP con fecha en `dist/`. Compartir **el ZIP completo**: cada persona
-lo descomprime y abre `DiffieHellman-TP.exe`. Debe conservar `_internal` y
-`configuracion.json` junto al ejecutable. No necesita instalar Python.
-El paquete incluye personajes, animaciones, librerías, servidor configurado,
-`COMO-JUGAR.txt` con los pasos de uso y `GUIA-DE-ESTUDIO.md`.
-Cada compilación usa una carpeta nueva.
+Se genera `dist/<fecha>/DiffieHellman-TP.exe` y su archivo de verificación SHA-256.
+La configuración y documentación se incluyen dentro del ejecutable. Si se
+necesita otro servidor, se puede ingresar su dirección en la pantalla o dejar
+un `configuracion.json` junto al exe como reemplazo opcional.
+
+El formato anterior de carpeta y ZIP sigue disponible con
+`python herramientas/empaquetar_windows.py --formato carpeta`.
+
+Para ejecutar `main.py` desde el código, instalar `requirements.txt` y usar los
+recursos de la misma rama. El entorno de referencia usa Python 3.14. Las imágenes
+están en `assets/personajes-arcade.png`; un logo diferente al ejecutar indica
+que debe revisarse esa copia local del recurso.
 
 ## Preguntas para el profe
 

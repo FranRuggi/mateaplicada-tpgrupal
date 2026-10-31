@@ -17,4 +17,5 @@ Prompt del ajuste final:
 
 > Edit ONLY the middle character Eve. Keep Alice on the left and Bob on the right exactly unchanged. Preserve the three equal-width sprite cells, full-body scale, standing pose, common feet baseline, crisp 16-bit pixel art, and genuine transparent alpha background. Eve must look like a recognizable arcade VILLAIN, not a friendly protagonist: sharply angled raised dark eyebrows, narrowed mischievous eyes looking sideways toward Alice, a prominent crooked evil grin/smirk with teeth, a slight menacing shadow under the purple fedora brim. Make her facial expression exaggerated and readable at small sprite size. Keep her human, not monster. Keep her dark purple spy trenchcoat, coral red scarf, purple boots and binoculars in hands BELOW her face so the face stays unobscured. Slightly hunched conspiratorial body language is okay, still centered in the same middle cell. Playful cartoon villain appropriate for a university educational game. No new objects or characters, no text, no background, no frame or UI. Alice and Bob must remain exactly as they are.
 
-Para distribuir un ejecutable también se debe incluir esta carpeta `assets`.
+El generador de Windows incluye esta carpeta dentro del exe único. Al ejecutar
+`main.py`, se carga el PNG de este repositorio; debe conservarse junto al código.

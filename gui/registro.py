@@ -74,6 +74,7 @@ class AreaConRegistro(ctk.CTkFrame):
         self.division.add(self.panel_principal, stretch="always")
         self.division.add(self.panel_registro, stretch="never")
         self.division.bind("<Configure>", lambda _e: self._programar_ajuste())
+        self.division.bind("<Map>", lambda _e: self._programar_ajuste(), add="+")
         self.division.bind("<ButtonRelease-1>", self._al_soltar_separador, add="+")
         self.colocar_registro("Abajo")
 
@@ -110,6 +111,11 @@ class AreaConRegistro(ctk.CTkFrame):
 
     def _aplicar_tamano(self):
         self._ajuste_id = None
+        # Tk puede conservar dimensiones aunque la vista esté oculta o todavía
+        # no haya creado el separador (por ejemplo al construir otra pestaña).
+        if (not self.division.winfo_exists() or not self.division.winfo_ismapped()
+                or len(self.division.panes()) < 2):
+            return
         escala = self._get_widget_scaling()
         lateral = self._ubicacion == "Derecha"
         total = self.division.winfo_width() if lateral else self.division.winfo_height()
@@ -121,7 +127,13 @@ class AreaConRegistro(ctk.CTkFrame):
         deseado = round(total*.7) if self._expandido else round(self._tamanos[self._ubicacion]*escala)
         tamano = min(max(minimo_registro, deseado), total-minimo_principal-separador)
         posicion = total-tamano-separador
-        self.division.sash_place(0, posicion if lateral else 0, 0 if lateral else posicion)
+        try:
+            self.division.sash_place(0, posicion if lateral else 0, 0 if lateral else posicion)
+        except tk.TclError as error:
+            if "invalid sash index" not in str(error):
+                raise
+            # Durante el mapeo puede faltar el sash aun existiendo los paneles.
+            # El siguiente Map/Configure volverá a solicitar el ajuste.
 
     def _recordar_tamano(self):
         lateral = self._ubicacion == "Derecha"

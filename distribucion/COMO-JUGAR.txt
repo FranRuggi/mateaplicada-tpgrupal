@@ -1,10 +1,10 @@
 DIFFIE-HELLMAN - MATEMATICA APLICADA
 
 ABRIR LA APLICACION
-1. Descomprimi todo el ZIP en una carpeta.
-2. Abri DiffieHellman-TP.exe con doble clic.
-3. Conserva la carpeta _internal y configuracion.json junto al ejecutable.
-No hace falta instalar Python. Para compartirlo, envia el ZIP completo.
+1. Descarga DiffieHellman-TP.exe desde GitHub Releases.
+2. Abrilo con doble clic. No hace falta instalar Python ni descomprimir un ZIP.
+3. Para compartirlo, envia ese mismo exe: incluye librerias, personajes y Render.
+El formato anterior con ZIP requiere descomprimir todo y conservar _internal.
 
 JUGAR POR INTERNET EN DOS COMPUTADORAS
 1. Las dos personas abren el programa y entran a Modo red > Internet - salas.

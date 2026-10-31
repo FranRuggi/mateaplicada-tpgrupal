@@ -1,4 +1,5 @@
-"""Generar un ZIP portable sin reemplazar versiones anteriores."""
+"""Generar un exe único (predeterminado) o un ZIP con carpeta portable."""
+import argparse
 from datetime import datetime
 import hashlib
 from importlib import metadata
@@ -9,26 +10,7 @@ import subprocess
 import sys
 
 
-def main():
-    if sys.platform != "win32" or struct.calcsize("P") != 8:
-        raise SystemExit("Este paquete se genera desde Windows con Python de 64 bits.")
-    raiz = Path(__file__).resolve().parents[1]
-    marca = datetime.now().strftime("%Y%m%d-%H%M%S")
-    nombre = "DiffieHellman-TP"
-    destino = raiz / "dist" / marca
-    trabajo = raiz / "build" / marca
-    destino.mkdir(parents=True, exist_ok=False)
-    trabajo.mkdir(parents=True, exist_ok=False)
-    subprocess.run([
-        sys.executable, "-m", "PyInstaller", "--onedir", "--windowed", "--noupx",
-        "--name", nombre, "--collect-data", "customtkinter",
-        "--collect-submodules", "websockets",
-        "--add-data", f"{raiz / 'assets'}:assets",
-        "--specpath", str(trabajo), "--workpath", str(trabajo / "pyinstaller"),
-        "--distpath", str(destino), str(raiz / "main.py"),
-    ], cwd=raiz, check=True)
-    paquete = destino / nombre
-    shutil.copy2(raiz / "configuracion.json", paquete)
+def preparar_documentacion(raiz, paquete, marca):
     shutil.copy2(raiz / "distribucion" / "COMO-JUGAR.txt", paquete)
     shutil.copy2(raiz / "GUIA-DE-ESTUDIO.md", paquete)
     (paquete / "docs").mkdir()
@@ -56,14 +38,50 @@ def main():
                 origen = Path(distribucion.locate_file(archivo))
                 if origen.is_file():
                     shutil.copy2(origen, licencias / f"{dependencia}-{origen.name}")
-    zip_path = Path(shutil.make_archive(
-        str(raiz / "dist" / f"{nombre}-Windows-{marca}"), "zip",
-        root_dir=destino, base_dir=nombre))
-    with zip_path.open("rb") as archivo_zip:
-        huella = hashlib.file_digest(archivo_zip, "sha256").hexdigest()
-    zip_path.with_suffix(".sha256.txt").write_text(f"{huella}  {zip_path.name}\n", encoding="ascii")
-    print(f"\nEjecutable: {paquete / (nombre + '.exe')}")
-    print(f"ZIP para compartir: {zip_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--formato", choices=("archivo", "carpeta"), default="archivo",
+                        help="archivo: exe único; carpeta: ZIP con _internal (formato anterior)")
+    args = parser.parse_args()
+    if sys.platform != "win32" or struct.calcsize("P") != 8:
+        raise SystemExit("Este paquete se genera desde Windows con Python de 64 bits.")
+    raiz = Path(__file__).resolve().parents[1]
+    marca = datetime.now().strftime("%Y%m%d-%H%M%S")
+    nombre = "DiffieHellman-TP"
+    destino = raiz / "dist" / marca
+    trabajo = raiz / "build" / marca
+    destino.mkdir(parents=True, exist_ok=False)
+    trabajo.mkdir(parents=True, exist_ok=False)
+    documentos = trabajo / "documentacion"
+    documentos.mkdir()
+    preparar_documentacion(raiz, documentos, marca)
+    archivo_unico = args.formato == "archivo"
+    comando = [
+        sys.executable, "-m", "PyInstaller", "--onefile" if archivo_unico else "--onedir",
+        "--windowed", "--noupx", "--name", nombre, "--collect-data", "customtkinter",
+        "--collect-submodules", "websockets",
+        "--add-data", f"{raiz / 'assets'}:assets",
+        "--add-data", f"{raiz / 'configuracion.json'}:.",
+        "--add-data", f"{documentos}:documentacion",
+        "--specpath", str(trabajo), "--workpath", str(trabajo / "pyinstaller"),
+        "--distpath", str(destino), str(raiz / "main.py"),
+    ]
+    subprocess.run(comando, cwd=raiz, check=True)
+    if archivo_unico:
+        entrega = destino / f"{nombre}.exe"
+    else:
+        paquete = destino / nombre
+        shutil.copy2(raiz / "configuracion.json", paquete)
+        shutil.copytree(documentos, paquete, dirs_exist_ok=True)
+        entrega = Path(shutil.make_archive(
+            str(raiz / "dist" / f"{nombre}-Windows-{marca}"), "zip",
+            root_dir=destino, base_dir=nombre))
+    with entrega.open("rb") as archivo:
+        huella = hashlib.file_digest(archivo, "sha256").hexdigest()
+    entrega.with_suffix(".sha256.txt").write_text(f"{huella}  {entrega.name}\n", encoding="ascii")
+    print(f"\nArchivo para compartir: {entrega}")
     print(f"SHA-256: {huella}")
 
 

@@ -3,6 +3,7 @@ import time
 import unittest
 
 from gui.app import App
+from gui.registro import AreaConRegistro
 
 
 class RegistroTests(unittest.TestCase):
@@ -81,6 +82,28 @@ class RegistroTests(unittest.TestCase):
         self.assertEqual(ataque._resultado.exponente, 6)
         self.assertEqual(ataque._secreto, 2)
         self.assertIn("Eve encontró a = 6", self.v.consola.get("1.0", "end"))
+
+    def test_ajuste_oculto_o_sin_separador_espera_a_que_el_panel_este_listo(self):
+        area = AreaConRegistro(self.app)
+        try:
+            self.assertFalse(area.division.winfo_ismapped())
+            area._aplicar_tamano()
+            area.division.forget(area.panel_registro)
+            area._aplicar_tamano()
+            self.app.update()
+            self.assertEqual(self.errores, [])
+            area.division.add(area.panel_registro, stretch="never")
+            area.grid(row=0, column=2, sticky="nsew")
+            self.app.deiconify()
+            self.app.update()
+            area.colocar_registro("Derecha")
+            self.app.update()
+            self.assertEqual(len(area.division.panes()), 2)
+            area.division.sash_coord(0)
+            self.assertEqual(self.errores, [])
+        finally:
+            area.destroy()
+            self.app.withdraw()
 
 
 if __name__ == "__main__":

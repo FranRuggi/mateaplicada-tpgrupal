@@ -18,12 +18,21 @@ from transporte.canal import ErrorCanal
 def url_predeterminada():
     if os.environ.get("DH_SERVER_URL"):
         return os.environ["DH_SERVER_URL"]
-    raiz = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
-    try:
-        datos = json.loads((raiz / "configuracion.json").read_text(encoding="utf-8"))
-        return str(datos.get("servidor_url", ""))
-    except (OSError, ValueError, TypeError):
-        return ""
+    incluida = Path(__file__).resolve().parents[1] / "configuracion.json"
+    rutas = [incluida]
+    if getattr(sys, "frozen", False):
+        # En --onefile el archivo incluido está en el directorio temporal del
+        # bundle. Una configuración externa junto al exe sigue siendo opcional.
+        rutas.insert(0, Path(sys.executable).parent / "configuracion.json")
+    for ruta in rutas:
+        try:
+            datos = json.loads(ruta.read_text(encoding="utf-8"))
+            return str(datos.get("servidor_url", ""))
+        except FileNotFoundError:
+            continue
+        except (OSError, ValueError, TypeError, AttributeError):
+            return ""
+    return ""
 
 
 def url_websocket(url):
