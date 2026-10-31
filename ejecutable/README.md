@@ -13,8 +13,12 @@ generador deja el resultado en `dist/<fecha>/`. Para actualizar esta copia
 del repo, reemplazar el exe y su archivo `.sha256.txt` por los recién generados.
 
 Esta copia se compiló desde la revisión
-`cb1e27ec3b88e1f8d7c3367541cd579afe7ea22f`.
+`6ee96869dfe218891dd6e66dc7ced9f2e84f5683`.
 
 Incluye la corrección de lectura PNG: Tk 9 ya no debe mostrar el logo SVG de
 los metadatos en lugar de Alice, Eve y Bob. Cerrar cualquier instancia anterior
 antes de actualizar el ejecutable y volver a abrir esta copia de la carpeta.
+
+Incluye `cryptography` para cifrar y descifrar mensajes. Los errores de
+dependencias se muestran dentro de la app y en su consola; un intento fallido
+conserva el borrador o el mensaje recibido pendiente de descifrar.
