@@ -326,7 +326,7 @@ class VistaModoArchivo(ctk.CTkFrame):
         self.mensajes = PanelMensajes(self.tabs.tab("Mensajes"), self._enviar_texto,
                                       self.ataque_eve.btn.invoke, self.ataque_eve.btn_cancelar.invoke,
                                       self._descifrar_texto,
-                                      roles=(rol,))
+                                      roles=(rol,), al_error=self._log)
         self.mensajes.grid(row=0, column=0, sticky="nsew")
         if hasattr(self, "lbl_srv"):
             self._texto_servidor()

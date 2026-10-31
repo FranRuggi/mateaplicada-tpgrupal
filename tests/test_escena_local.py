@@ -23,6 +23,7 @@ class EscenaLocalTests(unittest.TestCase):
     def setUp(self):
         self.v = self.app.vistas["local"]
         self.v.reiniciar()
+        self.v.mensajes._cambiar_rol("Alice")
         self.v.escena.establecer_animaciones(False)
         self.errores_tk.clear()
 
@@ -39,6 +40,24 @@ class EscenaLocalTests(unittest.TestCase):
         for tarjeta, valor in ((self.v.t_alice, a), (self.v.t_bob, b)):
             tarjeta.entrada_priv.insert(0, str(valor))
             tarjeta.btn_publica.invoke()
+
+    def completar_intercambio(self):
+        self.parametros()
+        self.calcular()
+        self.v.t_alice.btn_enviar.invoke()
+        self.v.t_bob.btn_enviar.invoke()
+        self.v.t_alice.btn_secreto.invoke()
+        self.v.t_bob.btn_secreto.invoke()
+
+    def sin_cryptography(self):
+        importar = __import__
+
+        def importar_sin_crypto(nombre, *args, **kwargs):
+            if nombre == "cryptography" or nombre.startswith("cryptography."):
+                raise ModuleNotFoundError("No module named 'cryptography'", name="cryptography")
+            return importar(nombre, *args, **kwargs)
+
+        return patch("builtins.__import__", side_effect=importar_sin_crypto)
 
     def completar_animaciones(self):
         escena = self.v.escena
@@ -136,6 +155,52 @@ class EscenaLocalTests(unittest.TestCase):
         self.completar_animaciones()
         self.assertEqual(escena.publicos_observados, {"p": 23, "g": 5, "A": 8, "B": 19})
         self.assertFalse(escena.canvas.find_withtag("paquete"))
+
+    def test_falta_cryptography_muestra_error_conserva_borrador_y_permite_reintentar(self):
+        self.completar_intercambio()
+        panel = self.v.mensajes
+        texto = "Un borrador que no debe perderse"
+        panel.entrada.insert("1.0", texto)
+        for exe in (False, True):
+            with self.subTest(exe=exe), self.sin_cryptography(), \
+                    patch("gui.mensajes.sys.frozen", exe, create=True):
+                panel.btn_enviar.invoke()
+                aviso = panel.estado.cget("text")
+                self.assertIn("No se pudo cifrar y enviar", aviso)
+                if exe:
+                    self.assertIn("Volvé a descargar", aviso)
+                    self.assertNotIn("pip install", aviso)
+                else:
+                    self.assertIn("Falta la dependencia cryptography", aviso)
+                    self.assertIn("python -m pip install -r requirements.txt", aviso)
+                self.assertEqual(panel.entrada.get("1.0", "end-1c"), texto)
+                self.assertEqual(self.v.conversacion.registros, [])
+                self.assertIn("ModuleNotFoundError", self.v.consola.get("1.0", "end"))
+        panel.btn_enviar.invoke()
+        self.assertEqual(len(self.v.conversacion.registros), 1)
+        self.assertEqual(panel.entrada.get("1.0", "end-1c"), "")
+        self.assertNotIn("No se pudo", panel.estado.cget("text"))
+        self.assertNotIn(texto, self.v.consola.get("1.0", "end"))
+
+    def test_falta_cryptography_al_descifrar_deja_el_mensaje_pendiente(self):
+        self.completar_intercambio()
+        panel = self.v.mensajes
+        panel.entrada.insert("1.0", "Mensaje recibido")
+        panel.btn_enviar.invoke()
+        panel._cambiar_rol("Bob")
+        registro = self.v.conversacion.registros[0]
+        with self.sin_cryptography():
+            panel.btn_descifrar.invoke()
+        self.assertIn("No se pudo descifrar el mensaje", panel.estado.cget("text"))
+        self.assertIn("Falta la dependencia cryptography", panel.estado.cget("text"))
+        self.assertIn("ModuleNotFoundError", self.v.consola.get("1.0", "end"))
+        self.assertIsNone(registro.lecturas["Bob"])
+        self.assertEqual(self.v.conversacion.pendientes("Bob"), [registro])
+        self.assertEqual(panel.btn_descifrar.cget("state"), "normal")
+        panel.btn_descifrar.invoke()
+        self.assertEqual(registro.lecturas["Bob"], "Mensaje recibido")
+        self.assertNotIn("No se pudo", panel.estado.cget("text"))
+        self.assertEqual(panel.btn_descifrar.cget("state"), "disabled")
 
     def test_reiniciar_cancela_paquetes_y_desbloquea_los_controles(self):
         self.v.escena.establecer_animaciones(True)

@@ -5,13 +5,21 @@ App de escritorio en **Python + CustomTkinter**.
 ## Cómo correrla
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python main.py
 ```
 
 Para ejecutar o probar el servidor de Internet, instalar también
-`pip install -r servidor/requirements.txt`. La app de escritorio no necesita
+`python -m pip install -r servidor/requirements.txt`. La app de escritorio no necesita
 FastAPI ni Uvicorn para conectarse a un servidor ya publicado.
+
+Después de actualizar el repositorio, repetí la instalación de `requirements.txt`
+con el mismo `python` que usás para abrir `main.py`. El cifrado y descifrado de
+mensajes requieren `cryptography`; si falta, el intercambio de claves puede
+funcionar, pero esos botones mostrarán un error de dependencia. Instalá los
+requisitos y volvé a abrir la app. Como alternativa, el archivo
+[`ejecutable/DiffieHellman-TP.exe`](ejecutable/DiffieHellman-TP.exe) ya incluye
+Python y todas las dependencias.
 
 En Linux puede hacer falta `sudo apt install python3-tk`. En Windows y Mac viene con Python.
 

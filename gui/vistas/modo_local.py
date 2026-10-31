@@ -78,7 +78,8 @@ class VistaModoLocal(AreaConRegistro):
         self.mensajes = PanelMensajes(tab, self._enviar_texto, self.ataque_eve.btn.invoke,
                                       self.ataque_eve.btn_cancelar.invoke,
                                       self._descifrar_texto,
-                                      roles=(rol_local,) if rol_local else ("Alice", "Bob"))
+                                      roles=(rol_local,) if rol_local else ("Alice", "Bob"),
+                                      al_error=self._log)
         self.mensajes.grid(row=0, column=0, sticky="nsew")
         self.btn_mensajes = ctk.CTkButton(estado, text="Mensajes", width=95, height=26,
                                          command=self.abrir_mensajes)

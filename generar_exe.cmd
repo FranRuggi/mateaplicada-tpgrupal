@@ -29,7 +29,7 @@ exit /b 0
 echo.
 echo Para GENERAR el exe se necesita Python 3.14 de 64 bits.
 echo Instalalo y volve a abrir este script.
-echo Para USAR la app, descarga el exe de GitHub Releases: no necesita Python.
+echo Para USAR la app, abri ejecutable\DiffieHellman-TP.exe: no necesita Python.
 echo Si ya existe .venv-build, comproba que se haya creado con Python 3.14.
 :error
 echo.

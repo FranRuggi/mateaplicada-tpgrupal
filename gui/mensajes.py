@@ -1,5 +1,6 @@
 """Panel reutilizable: redactar, ver la recepción y seguir la lectura de Eve."""
 import base64
+import sys
 import customtkinter as ctk
 
 from core.cifrado import ErrorCifrado
@@ -32,10 +33,12 @@ def intercepcion_para_escena(modelo):
 
 
 class PanelMensajes(ctk.CTkFrame):
-    def __init__(self, master, al_enviar, atacar, detener, al_descifrar, roles=("Alice", "Bob")):
+    def __init__(self, master, al_enviar, atacar, detener, al_descifrar,
+                 roles=("Alice", "Bob"), *, al_error=None):
         super().__init__(master, fg_color="transparent")
         self.al_enviar = al_enviar
         self.al_descifrar = al_descifrar
+        self.al_error = al_error
         self.roles = roles
         self._firma = None
         self._ultimo_sobre = ""
@@ -111,6 +114,24 @@ class PanelMensajes(ctk.CTkFrame):
         if self._modelo is not None:
             self.actualizar(self._modelo, self._motivos, self._ataque)
 
+    def _mostrar_error(self, accion, error):
+        detalle = str(error)
+        if isinstance(error, ImportError):
+            if getattr(sys, "frozen", False):
+                detalle = ("No se pudo cargar una dependencia de cifrado. Volvé a descargar "
+                           "ejecutable/DiffieHellman-TP.exe desde la rama FranFran.")
+            else:
+                falta_crypto = (isinstance(error, ModuleNotFoundError) and
+                                (error.name or "").split(".")[0] == "cryptography")
+                detalle = ("Falta la dependencia cryptography. " if falta_crypto else
+                           "No se pudo cargar una dependencia de cifrado. ")
+                detalle += ("Instalá las dependencias con «python -m pip install -r requirements.txt» "
+                            "y volvé a abrir la app, o usá ejecutable/DiffieHellman-TP.exe.")
+        mensaje = f"No se pudo {accion}: {detalle}"
+        self.estado.configure(text=mensaje, text_color=tema.EVE)
+        if self.al_error is not None:
+            self.al_error(f"{mensaje} [{type(error).__name__}: {error}]")
+
     def descifrar(self):
         try:
             rol = self.sel_rol.get()
@@ -119,8 +140,9 @@ class PanelMensajes(ctk.CTkFrame):
             if self._siguiente_id is None:
                 raise ValueError("No hay mensajes recibidos pendientes de descifrar.")
             self.al_descifrar(rol, self._siguiente_id)
-        except (ValueError, OSError, RuntimeError, ErrorCanal, ErrorProtocolo) as error:
-            self.estado.configure(text=str(error), text_color=tema.EVE)
+            self._estado()
+        except (ValueError, OSError, RuntimeError, ImportError, ErrorCanal, ErrorProtocolo) as error:
+            self._mostrar_error("descifrar el mensaje", error)
 
     def enviar(self):
         try:
@@ -131,8 +153,9 @@ class PanelMensajes(ctk.CTkFrame):
                 raise ValueError("Escribí un mensaje para enviar.")
             self.al_enviar(self.sel_rol.get(), texto)
             self.entrada.delete("1.0", "end")
-        except (ValueError, OSError, RuntimeError, ErrorCanal, ErrorProtocolo) as error:
-            self.estado.configure(text=str(error), text_color=tema.EVE)
+            self._estado()
+        except (ValueError, OSError, RuntimeError, ImportError, ErrorCanal, ErrorProtocolo) as error:
+            self._mostrar_error("cifrar y enviar", error)
 
     def actualizar(self, modelo, motivos, ataque):
         self._modelo, self._ataque = modelo, ataque
