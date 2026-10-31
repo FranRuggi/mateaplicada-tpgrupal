@@ -13,4 +13,8 @@ generador deja el resultado en `dist/<fecha>/`. Para actualizar esta copia
 del repo, reemplazar el exe y su archivo `.sha256.txt` por los recién generados.
 
 Esta copia se compiló desde la revisión
-`03cf537c81b54453a92d825c0935954092c5b2aa`.
+`cb1e27ec3b88e1f8d7c3367541cd579afe7ea22f`.
+
+Incluye la corrección de lectura PNG: Tk 9 ya no debe mostrar el logo SVG de
+los metadatos en lugar de Alice, Eve y Bob. Cerrar cualquier instancia anterior
+antes de actualizar el ejecutable y volver a abrir esta copia de la carpeta.
