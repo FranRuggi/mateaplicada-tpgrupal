@@ -1,7 +1,7 @@
 DIFFIE-HELLMAN - MATEMATICA APLICADA
 
 ABRIR LA APLICACION
-1. Descarga DiffieHellman-TP.exe desde GitHub Releases.
+1. Actualiza la rama FranFran y entra a la carpeta ejecutable del repositorio.
 2. Abrilo con doble clic. No hace falta instalar Python ni descomprimir un ZIP.
 3. Para compartirlo, envia ese mismo exe: incluye librerias, personajes y Render.
 El formato anterior con ZIP requiere descomprimir todo y conservar _internal.

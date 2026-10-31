@@ -284,10 +284,12 @@ servidor publicado; el modo local y el intercambio por archivos son independient
 - Para **Sockets TCP**, ambas tienen que estar en la misma red local y Alice
   necesita la IP de Bob. Para probar en una PC, usar `127.0.0.1`.
 
-### Descargar el ejecutable para Windows
+### Ejecutable de Windows dentro del repositorio
 
-Descargar **[DiffieHellman-TP.exe](https://github.com/FranRuggi/mateaplicada-tpgrupal/releases/latest/download/DiffieHellman-TP.exe)**
-desde GitHub Releases y abrirlo con doble clic. Es un archivo único para Windows
+El programa está en la carpeta **[ejecutable/](ejecutable/)** de la rama
+**FranFran**. Al clonar o actualizar esa rama, abrir
+**[ejecutable/DiffieHellman-TP.exe](ejecutable/DiffieHellman-TP.exe)** con doble clic.
+Es un archivo único para Windows
 de 64 bits: incluye Python, librerías, personajes y configuración de Render.
 No requiere ZIP, carpeta `_internal` ni instalar Python para jugar.
 
