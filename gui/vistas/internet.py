@@ -20,6 +20,7 @@ class VistaInternet(ctk.CTkFrame):
         self.cliente = None
         self.partida = None
         self.estado = None
+        self._capacidades = []
         self._intencion = None
         self._sondeo = None
         progreso = ctk.CTkFrame(self, fg_color="transparent")
@@ -189,6 +190,7 @@ class VistaInternet(ctk.CTkFrame):
         elif tipo == "bienvenida":
             if evento.get("protocolo") != 1:
                 raise ValueError("La versión del servidor no es compatible.")
+            self._capacidades = evento.get("capacidades", [])
         elif tipo == "estado":
             self.estado = evento
             if evento.get("sala"):
@@ -204,7 +206,8 @@ class VistaInternet(ctk.CTkFrame):
             if nueva and self.partida is None:
                 if evento.get("rol") not in ("Alice", "Bob"):
                     raise ValueError("El servidor no asignó un personaje válido.")
-                self.partida = VistaPartidaRed(self, self.cliente, evento["sala"], evento["rol"], nueva, self.salir)
+                self.partida = VistaPartidaRed(self, self.cliente, evento["sala"], evento["rol"], nueva, self.salir,
+                                              permite_mensajes="mensajes-cifrados-v1" in self._capacidades)
             self._actualizar_controles()
         elif tipo == "mensaje":
             if self.partida:

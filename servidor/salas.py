@@ -6,6 +6,8 @@ import string
 import time
 from uuid import uuid4
 
+from transporte.canal import Mensaje
+
 
 class ErrorSala(ValueError):
     pass
@@ -28,6 +30,7 @@ class Sala:
     partida: str | None = None
     publicos: dict = field(default_factory=dict)
     secuencia: int = 0
+    mensajes: set = field(default_factory=set)
 
 
 class Salas:
@@ -59,6 +62,7 @@ class Salas:
             sala.partida = None
             sala.publicos.clear()
             sala.secuencia = 0
+            sala.mensajes.clear()
             if sala.miembros:
                 self._avisar(sala)
             else:
@@ -147,6 +151,22 @@ class Salas:
         if not c.rol or not sala.partida or pedido["partida"] != sala.partida:
             raise ErrorSala("La partida terminó o todavía falta otro participante.")
         tipo, datos = pedido["tipo"], pedido["datos"]
+        if tipo == "CIFRADO":
+            if set(sala.publicos) != {"p", "g", "A", "B"}:
+                raise ErrorSala("Primero intercambien ambas claves públicas.")
+            try:
+                if not isinstance(datos, dict):
+                    raise ValueError("Se esperaba un sobre cifrado.")
+                Mensaje(c.rol, "Bob" if c.rol == "Alice" else "Alice", tipo, datos, sala.partida).validar()
+            except (ValueError, TypeError) as error:
+                raise ErrorSala(str(error)) from error
+            if datos["id"] in sala.mensajes:
+                raise ErrorSala("Este identificador de mensaje ya se usó.")
+            if len(sala.mensajes) >= 200:
+                raise ErrorSala("La conversación llegó a 200 mensajes. Creen otra sala.")
+            sala.mensajes.add(datos["id"])
+            self._emitir_mensaje(sala, c, tipo, dict(datos))
+            return
         esperados = {"p", "g"} if tipo == "PARAMETROS" else {"A" if c.rol == "Alice" else "B"}
         if tipo not in ("PARAMETROS", "PUBLICA") or not isinstance(datos, dict) or set(datos) != esperados:
             raise ErrorSala("Solo pueden enviarse p, g y la pública del propio personaje.")
@@ -164,9 +184,12 @@ class Salas:
             if p is None or not 1 < next(iter(numeros.values())) < p-1:
                 raise ErrorSala("Primero deben publicarse los parámetros; la pública debe estar entre 2 y p-2.")
         sala.publicos.update(numeros)
+        self._emitir_mensaje(sala, c, tipo, {k: str(v) for k, v in numeros.items()})
+
+    def _emitir_mensaje(self, sala, c, tipo, datos):
         sala.secuencia += 1
         evento = {"evento": "mensaje", "partida": sala.partida, "secuencia": sala.secuencia,
                   "remitente": c.rol, "destinatario": "Bob" if c.rol == "Alice" else "Alice",
-                  "tipo": tipo, "datos": {k: str(v) for k, v in numeros.items()}}
+                  "tipo": tipo, "datos": datos}
         for miembro in tuple(sala.miembros.values()):
             miembro.emitir(evento)

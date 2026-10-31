@@ -22,12 +22,26 @@ EL INTERCAMBIO
 - Cuando recibieron la publica del otro, cada uno toca Derivar K.
 - Comparen sus resultados: deben obtener la misma K sin enviarla por el canal.
 
+MENSAJES CIFRADOS
+1. Despues de intercambiar A/B y derivar K, abri la pestana Mensajes.
+2. Escribi un texto y toca Cifrar y enviar.
+3. La otra persona lo recibe cifrado en Conversacion.
+4. Toca Descifrar mensaje para leer el primer mensaje pendiente con tu K.
+   Cada clic abre uno; recibirlo o tener K no lo descifra automaticamente.
+5. La otra persona puede responder de la misma manera.
+En modo local, elegi Alice o Bob arriba de Mensajes para ver sus recibidos.
+El boton se habilita cuando tenes K y un mensaje pendiente.
+Si K no coincide o el contenido se altero, se muestra un error de autenticacion.
+
 EVE Y LOS PERSONAJES
 Alice, Bob y Eve ya estan incluidos, con las animaciones del intercambio.
 Eve es la espia de la escena, no ocupa una plaza de la sala.
 Sus datos se completan con los valores publicos que pasan por el canal.
 Para probar que adivine la privada, toca Intentar ataque en la tarjeta de Eve.
 Con numeros pequenos puede encontrarla; con numeros grandes puede agotar el limite.
+En Mensajes > Eve / canal tambien podes iniciar el ataque y ver el cifrado.
+Si Eve reconstruye K, descifra los mensajes interceptados y lo anuncia en la escena.
+La consola indica quien cifro y quien descifro cada mensaje.
 
 PRUEBA CORTA
 p=23, g=5, privada de Alice a=6, privada de Bob b=15.

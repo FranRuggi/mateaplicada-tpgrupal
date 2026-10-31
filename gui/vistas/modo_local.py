@@ -1,5 +1,6 @@
 """Modo local: escena arcade y controles reales de Alice y Bob."""
 import customtkinter as ctk
+from uuid import uuid4
 
 from core import aritmetica
 from gui import tema
@@ -7,6 +8,8 @@ from gui.ataque_eve import PanelAtaqueEve
 from gui.componentes import Tarjeta, TarjetaParticipante
 from gui.escena import EscenaIntercambio
 from gui.registro import AreaConRegistro
+from gui.mensajes import PanelMensajes, intercepcion_para_escena, registrar_lecturas
+from protocolo.conversacion import Conversacion
 from protocolo.sesion import ErrorProtocolo, Participante
 from transporte.canal import CanalMemoria, Mensaje
 
@@ -19,6 +22,10 @@ class VistaModoLocal(AreaConRegistro):
         self.canal = CanalMemoria()
         self.canal.observar(self._al_pasar_mensaje)
         self.eve_sabe: dict[str, int] = {}
+        self.rol_local = rol_local
+        self._intercambio = getattr(self, "partida", uuid4().hex)
+        self.conversacion = Conversacion()
+        self._textos_pendientes = {}
         self._refrescando = False
         self._lista = False
         self._generacion = 0
@@ -65,6 +72,17 @@ class VistaModoLocal(AreaConRegistro):
         self.banner = ctk.CTkLabel(self.cuerpo, text="", height=0, corner_radius=8,
                                    font=tema.fuente(13, "bold"), width=1, wraplength=900)
         self.banner.grid(row=4, column=1, sticky="ew", pady=(4, 0))
+        tab = self.registro.add("Mensajes")
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(0, weight=1)
+        self.mensajes = PanelMensajes(tab, self._enviar_texto, self.ataque_eve.btn.invoke,
+                                      self.ataque_eve.btn_cancelar.invoke,
+                                      self._descifrar_texto,
+                                      roles=(rol_local,) if rol_local else ("Alice", "Bob"))
+        self.mensajes.grid(row=0, column=0, sticky="nsew")
+        self.btn_mensajes = ctk.CTkButton(estado, text="Mensajes", width=95, height=26,
+                                         command=self.abrir_mensajes)
+        self.btn_mensajes.grid(row=0, column=2)
         self._lista = True
         self._log("Sesión lista. Publicá los parámetros para comenzar.")
         self._refrescar()
@@ -191,7 +209,7 @@ class VistaModoLocal(AreaConRegistro):
             validacion.establecer_parametros(p, g)
             self.reiniciar(limpiar_campos=False)
             self.alice.establecer_parametros(p, g)
-            self.canal.enviar(Mensaje("Alice", "Bob", "PARAMETROS", {"p": p, "g": g}))
+            self.canal.enviar(Mensaje("Alice", "Bob", "PARAMETROS", {"p": p, "g": g}, self._intercambio))
             m = self.canal.recibir("Bob")
             self.bob.establecer_parametros(m.datos["p"], m.datos["g"])
             self.lbl_param.configure(text="✔ p y g publicados. Las privadas se eligen abajo.",
@@ -203,7 +221,13 @@ class VistaModoLocal(AreaConRegistro):
         self._refrescar()
 
     def _al_pasar_mensaje(self, m: Mensaje):
+        if m.tipo == "CIFRADO":
+            self.conversacion.registrar(m, self._textos_pendientes.pop(m.datos["id"], None))
+            self._log(f"{m.remitente} → {m.destinatario} · CIFRADO: sobre AES-256-GCM interceptado por Eve.")
+            self.escena.mostrar_mensaje(m)
+            return
         self.eve_sabe.update(m.datos)
+        self.conversacion.actualizar(self.eve_sabe, self._intercambio)
         datos = ", ".join(f"{k} = {v}" for k, v in m.datos.items())
         self._log(f"{m.remitente} → {m.destinatario} · {m.tipo}: {datos}")
         self._log(f"Eve observa una copia de {', '.join(m.datos)}.")
@@ -212,9 +236,45 @@ class VistaModoLocal(AreaConRegistro):
     def _enviar(self, quien: Participante):
         otro = self.bob if quien is self.alice else self.alice
         clave = "A" if quien is self.alice else "B"
-        self.canal.enviar(Mensaje(quien.nombre, otro.nombre, "PUBLICA", {clave: quien.publica}))
+        self.canal.enviar(Mensaje(quien.nombre, otro.nombre, "PUBLICA", {clave: quien.publica}, self._intercambio))
         m = self.canal.recibir(otro.nombre)
         otro.recibir_publica(m.datos[clave])
+        self._refrescar()
+
+    def abrir_mensajes(self):
+        self.registro.set("Mensajes")
+        if self._ubicacion == "Abajo" and self._tamanos["Abajo"] < 350:
+            self._tamanos["Abajo"] = 350
+            self._programar_ajuste()
+
+    def _enviar_texto(self, rol, texto):
+        quien = self.alice if rol == "Alice" else self.bob
+        m = self.conversacion.preparar(rol, texto, quien.secreto)
+        self._log(f"{rol} cifró un mensaje con su K usando AES-256-GCM.")
+        self._textos_pendientes[m.datos["id"]] = texto
+        self.canal.enviar(m)
+        self.canal.recibir(m.destinatario)
+        self._refrescar()
+
+    def _actualizar_mensajes(self):
+        actores = (self.alice, self.bob)
+        claves = {a.nombre: a.secreto for a in actores if self.rol_local in (None, a.nombre)}
+        nuevas = self.conversacion.actualizar_claves(claves, self.ataque_eve.estado.get("secreto"))
+        registrar_lecturas(nuevas, self._log)
+        self.escena.actualizar_intercepcion(intercepcion_para_escena(self.conversacion))
+        motivos = {}
+        for rol in self.mensajes.roles:
+            motivos[rol] = ("Esperá a que termine el intercambio animado." if self.escena.en_animacion else
+                            "Primero intercambien las dos claves públicas A y B." if not self.conversacion.lista else
+                            f"{rol}: derivá tu secreto K para usar los mensajes." if claves.get(rol) is None else "")
+        self.mensajes.actualizar(self.conversacion, motivos, self.ataque_eve)
+
+    def _descifrar_texto(self, rol, identificador):
+        if self.rol_local not in (None, rol):
+            raise ErrorProtocolo("Solo podés descifrar los mensajes de tu personaje.")
+        quien = self.alice if rol == "Alice" else self.bob
+        nuevas = self.conversacion.descifrar(identificador, rol, quien.secreto)
+        registrar_lecturas(nuevas, self._log)
         self._refrescar()
 
     def datos_para_eve(self):
@@ -263,6 +323,7 @@ class VistaModoLocal(AreaConRegistro):
                     text_color=tema.OK if coinciden else tema.EVE, height=28)
             else:
                 self.banner.configure(text="", fg_color="transparent", height=0)
+            self._actualizar_mensajes()
         finally:
             self._refrescando = False
 
@@ -275,6 +336,10 @@ class VistaModoLocal(AreaConRegistro):
         self.btn_generar.configure(state="normal", text="Generar p y g")
         self.alice.reiniciar(); self.bob.reiniciar()
         self.eve_sabe.clear()
+        self._intercambio = uuid4().hex
+        self.conversacion.actualizar({}, self._intercambio)
+        self._textos_pendientes.clear()
+        self.mensajes.limpiar()
         self.canal = CanalMemoria()
         self.canal.observar(self._al_pasar_mensaje)
         self.ataque_eve.reiniciar()

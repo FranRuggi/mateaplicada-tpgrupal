@@ -23,7 +23,7 @@ class AreaConRegistro(ctk.CTkFrame):
         barra.grid_columnconfigure(0, weight=1)
         self.lbl_titulo = ctk.CTkLabel(barra, text="Modo local", font=tema.fuente(15, "bold"), anchor="w")
         self.lbl_titulo.grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(barra, text="Consola", font=tema.fuente(12),
+        ctk.CTkLabel(barra, text="Panel", font=tema.fuente(12),
                      text_color=tema.TENUE).grid(row=0, column=1, padx=(10, 8))
         self.sel_ubicacion = ctk.CTkSegmentedButton(
             barra, values=["Abajo", "Derecha"], height=28,
@@ -52,7 +52,7 @@ class AreaConRegistro(ctk.CTkFrame):
         cab = ctk.CTkFrame(self.panel_registro, fg_color="transparent")
         cab.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 0))
         cab.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(cab, text="Consola y pasos", font=tema.fuente(14, "bold"),
+        ctk.CTkLabel(cab, text="Registro de la sesión", font=tema.fuente(14, "bold"),
                      anchor="w").grid(row=0, column=0, sticky="w")
         self.btn_ampliar = ctk.CTkButton(cab, text="Ampliar", width=90, height=27,
                                          fg_color=tema.PANEL_2, command=self.ampliar_registro)

@@ -17,7 +17,7 @@ from transporte.canal import Mensaje
 class EventoEscena:
     tipo: str
     actor: str
-    datos: tuple[tuple[str, int], ...] = ()
+    datos: tuple[tuple[str, int | str], ...] = ()
 
 
 class EscenaIntercambio(ctk.CTkFrame):
@@ -72,6 +72,12 @@ class EscenaIntercambio(ctk.CTkFrame):
 
     def mostrar_mensaje(self, mensaje: Mensaje):
         mensaje.validar()
+        if mensaje.tipo == "CIFRADO":
+            # Reutilizar el recorrido del paquete sin exponer el texto ni K.
+            import json
+            cifrado = json.loads(mensaje.datos["sobre"])["texto_cifrado"]
+            self._agregar(EventoEscena("mensaje", mensaje.remitente, (("Cifrado", cifrado[:12] + "…"),)))
+            return
         # Copia inmutable: ni una posterior mutación del mensaje ni un cambio de
         # privada pueden alterar lo que ya se vio viajar por el canal.
         self._agregar(EventoEscena("mensaje", mensaje.remitente, tuple(mensaje.datos.items())))
@@ -101,6 +107,13 @@ class EscenaIntercambio(ctk.CTkFrame):
         self._actualizar_latido()
         self._dibujar()
 
+    def actualizar_intercepcion(self, datos):
+        """Texto verificado por Eve; nunca se consulta el mensaje del emisor."""
+        nuevos = dict(datos) if datos else None
+        if nuevos != self._intercepcion:
+            self._intercepcion = nuevos
+            self._dibujar()
+
     def _actualizar_latido(self):
         buscando = self.animaciones and self._ataque.get("estado") == "buscando"
         if buscando and self._latido_id is None:
@@ -121,6 +134,7 @@ class EscenaIntercambio(ctk.CTkFrame):
         self._cola.clear()
         self._evento = None
         self._estado = {}
+        self._intercepcion = None
         self.publicos_observados.clear()
         self._t = 0
         self._dibujar()
@@ -161,7 +175,8 @@ class EscenaIntercambio(ctk.CTkFrame):
 
     def _aplicar(self, evento):
         if evento.tipo == "mensaje":
-            self.publicos_observados.update(evento.datos)
+            self.publicos_observados.update((k, v) for k, v in evento.datos
+                                             if k in ("p", "g", "A", "B") and type(v) is int)
 
     def _avisar(self):
         if self.al_cambiar:
@@ -320,7 +335,9 @@ class EscenaIntercambio(ctk.CTkFrame):
         clave_eve = self._ataque.get("secreto") if self._ataque.get("estado") == "encontrada" else None
         self._texto(w/2, h-13*s, f"K = {self._numero(clave_eve, 18) if clave_eve is not None else '?'}",
                      "#ff8493", 12, True, tags="clave_Eve")
-        if not self._evento or self._evento.tipo != "mensaje":
+        enviando = self._evento and self._evento.tipo == "mensaje"
+        enviando_cifrado = enviando and any(k == "Cifrado" for k, _ in self._evento.datos)
+        if not enviando or (enviando_cifrado and self._t >= .5):
             frase = "A ver qué envían…" if not conocidos else "¡Ya tengo p y g!"
             if "A" in conocidos:
                 frase = "¡A también es mío!"
@@ -341,14 +358,25 @@ class EscenaIntercambio(ctk.CTkFrame):
                 frase = "Búsqueda detenida"
             elif estado_ataque == "error":
                 frase = "Falló la búsqueda"
+            if self._intercepcion and estado_ataque in ("esperando", "encontrada"):
+                texto = self._intercepcion["texto"]
+                # Durante el tránsito primero se ve la duda de Eve. El texto
+                # recuperado se anuncia al terminar de llegar el paquete.
+                if texto is not None and (not enviando or self._t >= .84):
+                    vista = " ".join("".join(c if c.isprintable() else " " for c in texto).split())
+                    frase = f"¡Lo descifré!\nDice: «{vista}»"
+                else:
+                    frase = f"¿Qué significa esto?\n«{self._intercepcion['cifrado'][:22]}…»"
             fuente = self._fuente(11)
+            frase = "\n".join(self._encajar(linea, min(w*.48, 360*s)-18*s, fuente)
+                               for linea in frase.splitlines())
             ancho = max(fuente.measure(linea) for linea in frase.splitlines()) + 18*s
             alto = (12 if '\n' not in frase else 20)*s
             y = base-eve.height()-47*s
             c.create_rectangle(w/2-ancho/2, y-alto, w/2+ancho/2, y+alto,
                                fill="#33283f", outline="#9c6c85")
             self._texto(w/2, y, frase, "#ffd0d8", 11, tags="estado_ataque_Eve")
-        elif self._evento and self._evento.tipo == "mensaje":
+        if enviando:
             self._dibujar_paquetes(w, h, s, canal_y)
 
     def _dibujar_paquetes(self, w, h, s, y):

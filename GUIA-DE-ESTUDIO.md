@@ -34,7 +34,15 @@ La analogía de la pintura:
 3. Cada uno le agrega su color secreto a la mezcla que recibió. Los dos terminan con **el mismo color final**.
 4. Eve vio el amarillo y las dos mezclas, pero "separar" una mezcla es muy difícil.
 
-**Diffie-Hellman no manda un mensaje secreto.** Solo sirve para acordar la clave. Después esa clave (K) se usa para cifrar la conversación con otro algoritmo, como el cifrado en bloque del TP2. Nuestro TP llega hasta acordar K.
+**Diffie-Hellman no manda un mensaje secreto.** Solo sirve para acordar la clave. Después esa clave (K) se usa para cifrar la conversación con otro algoritmo. El punto de DH llega hasta acordar K; nuestra extensión permite usarla para mensajes.
+
+Como extensión, las funciones modulares de HKDF-SHA256 y AES-256-GCM
+permiten cifrar y descifrar mensajes a partir de K desde la pestaña **Mensajes**,
+tanto en local como en red. Eve solo puede leerlos si su ataque reconstruye K.
+El destinatario recibe el cifrado y pulsa **Descifrar mensaje** para abrirlo
+con su K; la recepción y el descifrado son pasos separados.
+La API y sus límites se describen en
+[docs/CIFRADO.md](docs/CIFRADO.md).
 
 ---
 

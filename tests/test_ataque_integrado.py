@@ -78,6 +78,38 @@ class AtaqueIntegradoTests(unittest.TestCase):
         if enviar_b:
             self.v.t_bob.btn_enviar.invoke()
 
+    def test_eve_descifra_mensajes_interceptados_solo_despues_de_su_ataque(self):
+        self.preparar()
+        self.v.t_alice.btn_secreto.invoke()
+        self.v.t_bob.btn_secreto.invoke()
+        panel = self.v.mensajes
+        panel.entrada.insert("1.0", "Mensaje interceptado")
+        panel.btn_enviar.invoke()
+        r = self.v.conversacion.registros[0]
+        self.assertIsNone(r.lecturas["Eve"])
+        panel.btn_ataque.invoke()
+        self.bombear(lambda: not self.p._buscando)
+        self.assertEqual(r.lecturas["Eve"], "Mensaje interceptado")
+        self.assertIn("reconstruyó K", panel.eve.get("1.0", "end"))
+        escena = self.v.escena
+        def dialogo():
+            return escena.canvas.itemcget(escena.canvas.find_withtag("estado_ataque_Eve")[0], "text")
+        self.assertIn("¡Lo descifré!", dialogo())
+        self.assertIn("Mensaje interceptado", dialogo())
+        self.v._refrescar()
+        self.assertEqual(self.v.consola.get("1.0", "end").count("Eve descifró el mensaje de Alice"), 1)
+        # Aunque Eve ya tiene K, el siguiente paquete se intercepta primero y
+        # anuncia el descifrado al terminar el recorrido visual.
+        escena.establecer_animaciones(True)
+        panel.entrada.insert("1.0", "Otro mensaje")
+        panel.btn_enviar.invoke()
+        escena._t = .6
+        escena._dibujar()
+        self.assertIn("¿Qué significa esto?", dialogo())
+        self.assertTrue(escena.canvas.find_withtag("paquete"))
+        escena.establecer_animaciones(False)
+        self.assertIn("Otro mensaje", dialogo())
+
     def test_los_campos_se_completan_al_capturar_y_no_al_calcular_publicas(self):
         self.preparar(enviar_b=False)
         self.assertEqual(self.p.datos_publicos, {"p": 23, "g": 5, "A": 8})

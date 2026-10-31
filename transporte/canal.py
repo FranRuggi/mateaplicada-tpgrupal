@@ -28,8 +28,9 @@ class ErrorCanal(Exception):
 class Mensaje:
     remitente: str            # "Alice" / "Bob"
     destinatario: str
-    tipo: str                 # "PARAMETROS" | "PUBLICA"
-    datos: dict[str, int] = field(default_factory=dict)
+    tipo: str                 # "PARAMETROS" | "PUBLICA" | "CIFRADO"
+    datos: dict[str, int | str] = field(default_factory=dict)
+    intercambio: str = ""      # Identificador público; nunca contiene K.
 
     # Formato de texto plano que se escribe en el .txt / se manda por socket:
     #   de=Alice
@@ -39,6 +40,8 @@ class Mensaje:
     def a_texto(self) -> str:
         self.validar()
         lineas = [f"de={self.remitente}", f"para={self.destinatario}", f"tipo={self.tipo}"]
+        if self.intercambio:
+            lineas.append(f"intercambio={self.intercambio}")
         lineas += [f"{k}={v}" for k, v in self.datos.items()]
         return "\n".join(lineas) + "\n"
 
@@ -58,16 +61,29 @@ class Mensaje:
         if not {"de", "para", "tipo"} <= campos.keys():
             raise ValueError("Faltan de, para o tipo en el mensaje.")
         try:
-            datos = {k: int(v) for k, v in campos.items() if k not in ("de", "para", "tipo")}
+            datos = {k: v if campos["tipo"] == "CIFRADO" else int(v)
+                     for k, v in campos.items() if k not in ("de", "para", "tipo", "intercambio")}
         except ValueError as e:
             raise ValueError("Los datos públicos deben ser números enteros.") from e
-        mensaje = Mensaje(campos["de"], campos["para"], campos["tipo"], datos)
+        mensaje = Mensaje(campos["de"], campos["para"], campos["tipo"], datos, campos.get("intercambio", ""))
         mensaje.validar()
         return mensaje
 
     def validar(self):
         if {self.remitente, self.destinatario} != {"Alice", "Bob"}:
             raise ValueError("El mensaje debe circular entre Alice y Bob.")
+        if not isinstance(self.intercambio, str) or (self.intercambio and not re.fullmatch(r"[0-9a-f]{32}", self.intercambio)):
+            raise ValueError("Identificador de intercambio inválido.")
+        if self.tipo == "CIFRADO":
+            from protocolo.mensajes_cifrados import MensajeCifrado
+            if (not self.intercambio or set(self.datos) != {"id", "sobre"} or
+                    not isinstance(self.datos["id"], str) or
+                    not re.fullmatch(r"[0-9a-f]{32}", self.datos["id"]) or
+                    not isinstance(self.datos["sobre"], str) or
+                    "\n" in self.datos["sobre"] or "\r" in self.datos["sobre"]):
+                raise ValueError("El mensaje cifrado necesita intercambio, id y sobre.")
+            MensajeCifrado.desde_texto(self.datos["sobre"])
+            return
         if self.tipo == "PARAMETROS" and self.remitente == "Alice":
             esperados = {"p", "g"}
         elif self.tipo == "PUBLICA":
@@ -104,6 +120,7 @@ class CanalMemoria(Canal):
         self._cola: list[Mensaje] = []
 
     def enviar(self, mensaje: Mensaje):
+        mensaje.validar()
         self._cola.append(mensaje)
         self._notificar(mensaje)
 

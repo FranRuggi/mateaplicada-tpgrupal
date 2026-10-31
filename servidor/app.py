@@ -61,7 +61,7 @@ async def websocket(ws: WebSocket):
 
     emisor = asyncio.create_task(enviar())
     receptor = asyncio.create_task(recibir())
-    emitir({"evento": "bienvenida", "protocolo": 1})
+    emitir({"evento": "bienvenida", "protocolo": 1, "capacidades": ["mensajes-cifrados-v1"]})
     try:
         terminadas, _ = await asyncio.wait((emisor, receptor), return_when=asyncio.FIRST_COMPLETED)
         for tarea in terminadas:

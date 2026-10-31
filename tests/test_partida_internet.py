@@ -6,6 +6,8 @@ from unittest.mock import patch
 import customtkinter as ctk
 
 from gui.vistas.internet import VistaInternet
+from gui.vistas.partida_red import VistaPartidaRed
+from unittest.mock import Mock
 from servidor_prueba import ServidorPrueba
 
 
@@ -109,6 +111,34 @@ class PartidaInternetTests(unittest.TestCase):
         self.esperar(lambda: not b.ataque_eve._buscando)
         self.assertEqual(b.ataque_eve._resultado.exponente, 6)
         self.assertEqual(b.ataque_eve._secreto, 2)
+        texto = "Mensaje por Internet: ¡hola Bob! 🔐"
+        a.mensajes.entrada.insert("1.0", texto)
+        a.mensajes.btn_enviar.invoke()
+        self.esperar(lambda: len(b.conversacion.registros) == 1 and not a._pendiente)
+        self.assertIsNone(b.conversacion.registros[0].lecturas["Bob"])
+        self.assertNotIn(texto, b.mensajes.conversacion.get("1.0", "end"))
+        self.assertIn("Cifrado (Base64):", b.mensajes.conversacion.get("1.0", "end"))
+        self.assertEqual(b.mensajes.btn_descifrar.cget("state"), "normal")
+        b.mensajes.btn_descifrar.invoke()
+        self.assertEqual(b.conversacion.registros[0].lecturas["Bob"], texto)
+        self.assertEqual(b.mensajes.btn_descifrar.cget("state"), "disabled")
+        self.assertEqual(b.conversacion.registros[0].lecturas["Eve"], texto)
+        self.assertIsNone(a.conversacion.registros[0].lecturas["Eve"])
+        self.assertIsNone(a.conversacion.registros[0].lecturas["Bob"])
+        b.mensajes.entrada.insert("1.0", "Recibido, Alice")
+        b.mensajes.btn_enviar.invoke()
+        self.esperar(lambda: len(a.conversacion.registros) == 2 and not b._pendiente)
+        self.assertIsNone(a.conversacion.registros[1].lecturas["Alice"])
+        a.mensajes.btn_descifrar.invoke()
+        self.assertEqual(a.conversacion.registros[1].lecturas["Alice"], "Recibido, Alice")
+        self.assertEqual(set(a.eve_sabe), {"p", "g", "A", "B"})
+        self.assertNotIn(texto, a.consola.get("1.0", "end"))
+        self.assertIn("Alice cifró un mensaje", a.consola.get("1.0", "end"))
+        self.assertIn("Bob descifró el mensaje de Alice", b.consola.get("1.0", "end"))
+        for partida in (a, b):
+            canvas = partida.escena.canvas
+            dialogo = canvas.itemcget(canvas.find_withtag("estado_ataque_Eve")[0], "text")
+            self.assertIn("¡Lo descifré!" if partida is b else "¿Qué significa esto?", dialogo)
         a.colocar_registro("Derecha")
         self.assertIn("A = 8", a.consola.get("1.0", "end"))
 
@@ -142,6 +172,16 @@ class PartidaInternetTests(unittest.TestCase):
         self.assertEqual(self.a.btn_crear.cget("state"), "normal")
         self.assertEqual(self.a.paso_actual, "sala")
         self.assertEqual(self.a.paso_personaje.winfo_manager(), "")
+
+    def test_servidor_sin_capacidad_de_chat_deshabilita_mensajes_desde_el_inicio(self):
+        partida = VistaPartidaRed(self.root, Mock(), "DEMO", "Bob", "a" * 32, lambda: None,
+                                 permite_mensajes=False)
+        try:
+            self.assertEqual(partida.mensajes.btn_enviar.cget("state"), "disabled")
+            self.assertIn("servidor necesita", partida.mensajes.estado.cget("text"))
+            self.assertEqual(partida.mensajes.roles, ("Bob",))
+        finally:
+            partida.destroy()
 
     def test_puede_cancelar_la_conexion_sin_mostrar_la_eleccion_antes_de_entrar(self):
         with patch("gui.vistas.internet.ClienteSalas") as cliente:

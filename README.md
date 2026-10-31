@@ -20,7 +20,10 @@ En Linux puede hacer falta `sudo apt install python3-tk`. En Windows y Mac viene
 ```
 main.py                    punto de entrada
 core/aritmetica.py         potencia modular propia, Miller-Rabin, primos y generadores
+core/clave_simetrica.py    derivación de una clave AES desde K (HKDF-SHA256)
+core/cifrado.py            cifrado autenticado de bytes (AES-256-GCM)
 protocolo/sesion.py        Alice/Bob: estados, validaciones, errores amigables
+protocolo/mensajes_cifrados.py  texto UTF-8 y sobre JSON para el cifrado
 transporte/canal.py        CanalMemoria ✔ / CanalArchivo con sesiones y confirmación ✔ / CanalSocket (TCP en red local) ✔
 gui/tema.py                colores, fuentes, helper para no congelar la ventana
 gui/componentes.py         tarjeta de participante, panel paso a paso, campos
@@ -232,6 +235,28 @@ Si faltan valores, la vista los indica y limpia los campos faltantes para no
 mezclar intercambios. Primero publicar los parámetros y enviar `A`; después
 volver a traer los datos, elegir el límite y tocar **Intentar romper**.
 También se mantiene la carga manual y el atajo desde el canal del modo local.
+
+## Funciones de cifrado de mensajes
+
+La base modular para cifrar y descifrar textos a partir de K está implementada
+en `core/clave_simetrica.py`, `core/cifrado.py` y
+`protocolo/mensajes_cifrados.py`. Usa HKDF-SHA256 y AES-256-GCM mediante
+`cryptography`; la aritmética propia de Diffie-Hellman conserva su módulo.
+La pestaña **Mensajes** permite redactar, cifrar y enviar textos después del
+intercambio de A/B y la derivación de K. Funciona en local, archivos, TCP y
+salas con el servidor actualizado. Si el destinatario todavía no derivó K,
+el mensaje queda pendiente de descifrado. Tener K tampoco lo abre automáticamente:
+el destinatario pulsa **Descifrar mensaje** en **Conversación**, un mensaje por
+clic. En local se elige el rol del destinatario para ver sus recibidos.
+En **Eve / canal** se ve el cifrado
+y, si el ataque reconstruye K, el texto recuperado. La tarjeta de Eve conserva
+la selección del límite de intentos.
+
+`protocolo/conversacion.py` administra la sesión y las lecturas;
+`gui/mensajes.py` es el panel compartido. El servidor anuncia la capacidad
+`mensajes-cifrados-v1`; en servidores anteriores la GUI mantiene DH y
+deshabilita los mensajes cifrados. Ver la API, el formato y los límites en
+[docs/CIFRADO.md](docs/CIFRADO.md).
 
 ## Verificación
 

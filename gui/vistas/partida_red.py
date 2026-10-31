@@ -6,12 +6,13 @@ from transporte.canal import ErrorCanal, Mensaje
 
 
 class VistaPartidaRed(VistaModoLocal):
-    def __init__(self, master, cliente, sala, rol, partida, al_salir):
+    def __init__(self, master, cliente, sala, rol, partida, al_salir, permite_mensajes=True):
         self._red_lista = False
         self.cliente, self.sala, self.rol, self.partida = cliente, sala, rol, partida
         self.al_salir = al_salir
         self._pendiente = False
         self._secuencia = 0
+        self.permite_mensajes = permite_mensajes
         super().__init__(master, lambda _datos: None, rol_local=rol)
         self.yo = self.alice if rol == "Alice" else self.bob
         self.otro = self.bob if rol == "Alice" else self.alice
@@ -62,6 +63,25 @@ class VistaPartidaRed(VistaModoLocal):
         self._pendiente = True
         self._refrescar()
 
+    def _enviar_texto(self, rol, texto):
+        if rol != self.rol or not self.permite_mensajes:
+            raise ErrorProtocolo("El servidor o el personaje no permite este envío.")
+        m = self.conversacion.preparar(rol, texto, self.yo.secreto)
+        self._log(f"{rol} cifró un mensaje con su K usando AES-256-GCM.")
+        self._textos_pendientes[m.datos["id"]] = texto
+        try:
+            self._publicar("CIFRADO", m.datos)
+        except Exception:
+            self._textos_pendientes.pop(m.datos["id"], None)
+            raise
+
+    def _actualizar_mensajes(self):
+        super()._actualizar_mensajes()
+        if not self.permite_mensajes or self._pendiente:
+            motivo = ("Este servidor necesita la actualización de mensajes cifrados." if not self.permite_mensajes
+                      else "Esperando la confirmación del envío…")
+            self.mensajes.actualizar(self.conversacion, {self.rol: motivo}, self.ataque_eve)
+
     def aplicar_mensaje(self, evento):
         if evento.get("partida") != self.partida:
             return
@@ -73,13 +93,17 @@ class VistaPartidaRed(VistaModoLocal):
         if secuencia != self._secuencia+1:
             raise ErrorProtocolo("Se interrumpió el orden del intercambio. Volvé a ingresar a la sala.")
         datos = evento["datos"]
-        if not isinstance(datos, dict) or any(not isinstance(v, str) or len(v) > 1234 or
-                                              not v.isascii() or not v.isdecimal() for v in datos.values()):
+        cifrado = evento["tipo"] == "CIFRADO"
+        if not isinstance(datos, dict) or (not cifrado and any(
+                not isinstance(v, str) or len(v) > 1234 or not v.isascii() or not v.isdecimal()
+                for v in datos.values())):
             raise ErrorProtocolo("El servidor envió datos públicos inválidos.")
         m = Mensaje(evento["remitente"], evento["destinatario"], evento["tipo"],
-                    {k: int(v) for k, v in datos.items()})
+                    datos if cifrado else {k: int(v) for k, v in datos.items()}, self.partida)
         m.validar()
-        if m.tipo == "PARAMETROS":
+        if m.tipo == "CIFRADO":
+            self.conversacion.registrar(m, self._textos_pendientes.get(m.datos["id"]))
+        elif m.tipo == "PARAMETROS":
             p, g = m.datos["p"], m.datos["g"]
             for actor in (self.alice, self.bob):
                 if actor.p is None:
@@ -106,6 +130,7 @@ class VistaPartidaRed(VistaModoLocal):
 
     def mostrar_error(self, texto):
         self._pendiente = False
+        self._textos_pendientes.clear()
         self.lbl_param.configure(text=texto, text_color=tema.EVE)
         self._log(f"Error: {texto}")
         self._refrescar()

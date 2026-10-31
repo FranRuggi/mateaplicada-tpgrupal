@@ -82,6 +82,45 @@ class EscenaLocalTests(unittest.TestCase):
         self.assertEqual(self.v.datos_para_eve(), {"p": 23, "g": 5, "A": 8})
         self.assertEqual(set(self.v.escena.publicos_observados), {"p", "g", "A", "B"})
 
+    def test_mensajes_desde_gui_esperan_k_y_no_exponen_texto_en_escena(self):
+        self.parametros()
+        self.calcular()
+        self.v.t_alice.btn_enviar.invoke()
+        self.v.t_bob.btn_enviar.invoke()
+        self.v.t_alice.btn_secreto.invoke()
+        self.v.btn_mensajes.invoke()
+        self.assertEqual(self.v.registro.get(), "Mensajes")
+        panel = self.v.mensajes
+        panel.entrada.insert("1.0", "¡Hola Bob! 🔑")
+        panel.btn_enviar.invoke()
+        r = self.v.conversacion.registros[0]
+        self.assertIsNone(r.lecturas["Bob"])
+        self.assertIsNone(r.lecturas["Eve"])
+        self.assertIn("Alice cifró un mensaje", self.v.consola.get("1.0", "end"))
+        self.assertNotIn("Bob descifró", self.v.consola.get("1.0", "end"))
+        self.assertIn("¿Qué significa esto?", self.texto_canvas("estado_ataque_Eve"))
+        self.assertNotIn("¡Hola Bob!", self.texto_canvas("estado_ataque_Eve"))
+        panel._cambiar_rol("Bob")
+        self.assertIn("Cifrado (Base64):", panel.conversacion.get("1.0", "end"))
+        self.assertNotIn("¡Hola Bob!", panel.conversacion.get("1.0", "end"))
+        self.assertEqual(panel.btn_descifrar.cget("state"), "disabled")
+        self.v.t_bob.btn_secreto.invoke()
+        self.assertIsNone(r.lecturas["Bob"])
+        self.assertEqual(panel.btn_descifrar.cget("state"), "normal")
+        panel.btn_descifrar.invoke()
+        self.assertEqual(r.lecturas["Bob"], "¡Hola Bob! 🔑")
+        self.assertIn("¡Hola Bob!", panel.conversacion.get("1.0", "end"))
+        self.assertEqual(panel.btn_descifrar.cget("state"), "disabled")
+        self.assertEqual(set(self.v.escena.publicos_observados), {"p", "g", "A", "B"})
+        self.assertNotIn("¡Hola Bob!", self.v.consola.get("1.0", "end"))
+        for _ in range(3):
+            self.v._refrescar()
+        self.assertEqual(self.v.consola.get("1.0", "end").count("Bob descifró el mensaje de Alice"), 1)
+        self.v.reiniciar()
+        self.assertEqual(self.v.conversacion.registros, [])
+        self.assertEqual(panel.entrada.get("1.0", "end-1c"), "")
+        self.assertIsNone(self.v.escena._intercepcion)
+
     def test_cola_visual_copia_los_mensajes_y_conserva_ambos_sentidos(self):
         escena = self.v.escena
         escena.establecer_animaciones(True)

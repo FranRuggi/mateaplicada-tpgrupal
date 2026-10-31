@@ -8,6 +8,9 @@ from uuid import uuid4
 
 from gui import tema
 from gui.componentes import PanelPasos, Tarjeta, TarjetaParticipante
+from gui.ataque_eve import PanelAtaqueEve
+from gui.mensajes import PanelMensajes, registrar_lecturas
+from protocolo.conversacion import Conversacion
 from protocolo.sesion import ErrorProtocolo, Participante
 from transporte.canal import CanalArchivo, CanalSocket, ErrorCanal, Mensaje, ip_local
 
@@ -32,6 +35,8 @@ class VistaModoArchivo(ctk.CTkFrame):
         self._ultimo_error = None
         self._socket_listo = False
         self._publicos_eve: dict[str, int] = {}
+        self._intercambio = ""
+        self.conversacion = Conversacion()
 
         self._panel_config().grid(row=0, column=0, sticky="nsew")
         self.contenedor_tarjeta = ctk.CTkFrame(self, fg_color="transparent")
@@ -42,10 +47,18 @@ class VistaModoArchivo(ctk.CTkFrame):
         der = ctk.CTkFrame(self, fg_color="transparent")
         der.grid(row=0, column=2, sticky="nsew")
         der.grid_columnconfigure(0, weight=1)
-        der.grid_rowconfigure((0, 1), weight=1)
-        self._panel_registro(der).grid(row=0, column=0, sticky="nsew")
-        self.pasos = PanelPasos(der)
-        self.pasos.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        der.grid_rowconfigure(0, weight=1)
+        self.tabs = ctk.CTkTabview(der, fg_color=tema.PANEL)
+        self.tabs.grid(row=0, column=0, sticky="nsew")
+        for nombre in ("Registro", "Pasos", "Mensajes", "Eve"):
+            tab = self.tabs.add(nombre)
+            tab.grid_columnconfigure(0, weight=1)
+            tab.grid_rowconfigure(0, weight=1)
+        self._panel_registro(self.tabs.tab("Registro")).grid(row=0, column=0, sticky="nsew")
+        self.pasos = PanelPasos(self.tabs.tab("Pasos"))
+        self.pasos.grid(row=0, column=0, sticky="nsew")
+        self.ataque_eve = PanelAtaqueEve(self.tabs.tab("Eve"), lambda _: self._actualizar_chat(), self._log)
+        self.ataque_eve.grid(row=0, column=0, sticky="new")
 
         self._cambiar_rol("Alice")
         self._cambiar_transporte("Archivos .txt")
@@ -200,7 +213,7 @@ class VistaModoArchivo(ctk.CTkFrame):
                 mensaje = self.canal.recibir(self.yo.nombre)
                 if mensaje is None:
                     break
-                if mensaje.tipo == "PUBLICA" and self.yo.p is None:
+                if mensaje.tipo in ("PUBLICA", "CIFRADO") and self.yo.p is None:
                     self.canal.posponer(mensaje)
                     esperando = True
                     break
@@ -235,6 +248,11 @@ class VistaModoArchivo(ctk.CTkFrame):
                 self._log("No hay mensajes pendientes.")
 
     def _procesar_mensaje(self, mensaje):
+        if mensaje.tipo == "CIFRADO":
+            self.conversacion.registrar(mensaje)
+            return
+        if mensaje.intercambio and self._intercambio and mensaje.intercambio != self._intercambio:
+            raise ErrorProtocolo("El mensaje pertenece a otro intercambio. Usá otra sesión.")
         if mensaje.tipo == "PARAMETROS":
             p, g = mensaje.datos["p"], mensaje.datos["g"]
             if self.yo.p is None:
@@ -243,10 +261,12 @@ class VistaModoArchivo(ctk.CTkFrame):
                 raise ErrorProtocolo("Los parámetros cambiaron. Desconectá y usá otra sesión.")
             # Una retransmisión idéntica no borra claves ya calculadas.
             self._poner_parametros(p, g)
+            self._intercambio = mensaje.intercambio
         else:
             clave = "A" if mensaje.remitente == "Alice" else "B"
             self.yo.recibir_publica(mensaje.datos[clave])
         self._publicos_eve.update(mensaje.datos)
+        self._actualizar_chat()
 
     def _publicar_params_red(self):
         try:
@@ -260,8 +280,10 @@ class VistaModoArchivo(ctk.CTkFrame):
                 raise ErrorProtocolo("Para cambiar los parámetros, desconectá y usá otra sesión.")
             candidato = Participante("Alice")
             candidato.establecer_parametros(p, g)
-            m = Mensaje("Alice", "Bob", "PARAMETROS", {"p": p, "g": g})
+            intercambio = self._intercambio or uuid4().hex
+            m = Mensaje("Alice", "Bob", "PARAMETROS", {"p": p, "g": g}, intercambio)
             self.canal.enviar(m)
+            self._intercambio = intercambio
             if self.yo.p is None:
                 self.yo.establecer_parametros(p, g)
             self._publicos_eve.update(m.datos)
@@ -274,7 +296,7 @@ class VistaModoArchivo(ctk.CTkFrame):
             self._mostrar_error("p y g deben ser números enteros válidos.")
 
     def _panel_registro(self, master):
-        t = Tarjeta(master, "Mensajes en texto plano", "Datos públicos enviados y recibidos")
+        t = Tarjeta(master, "Registro del canal", "Parámetros públicos y sobres cifrados")
         self.registro = ctk.CTkTextbox(t, font=tema.fuente_mono(12), fg_color=tema.PANEL_2,
                                        corner_radius=10)
         self.registro.grid(row=t.siguiente_fila, column=0, sticky="nsew", padx=12, pady=(4, 12))
@@ -295,9 +317,17 @@ class VistaModoArchivo(ctk.CTkFrame):
             self.contenedor_tarjeta, self.yo, tema.ALICE if es_alice else tema.BOB,
             "Bob" if es_alice else "Alice", "a" if es_alice else "b",
             "A" if es_alice else "B", "B" if es_alice else "A",
-            self._enviar, self.pasos.mostrar if hasattr(self, "pasos") else lambda *_: None)
+            self._enviar, self.pasos.mostrar if hasattr(self, "pasos") else lambda *_: None,
+            al_actualizar=self._actualizar_chat)
         tarjeta.grid(row=0, column=0, sticky="nsew")
         self.tarjeta = tarjeta
+        if hasattr(self, "mensajes"):
+            self.mensajes.destroy()
+        self.mensajes = PanelMensajes(self.tabs.tab("Mensajes"), self._enviar_texto,
+                                      self.ataque_eve.btn.invoke, self.ataque_eve.btn_cancelar.invoke,
+                                      self._descifrar_texto,
+                                      roles=(rol,))
+        self.mensajes.grid(row=0, column=0, sticky="nsew")
         if hasattr(self, "lbl_srv"):
             self._texto_servidor()
         self._actualizar_controles()
@@ -369,6 +399,11 @@ class VistaModoArchivo(ctk.CTkFrame):
             self.canal.cerrar()
         self.canal = None
         self._publicos_eve.clear()
+        self._intercambio = ""
+        self.conversacion.actualizar({}, "")
+        if hasattr(self, "mensajes"):
+            self.mensajes.limpiar()
+            self.ataque_eve.reiniciar()
         self._ultimo_error = None
         if hasattr(self, "yo"):
             self.yo.reiniciar()
@@ -399,6 +434,38 @@ class VistaModoArchivo(ctk.CTkFrame):
         for control in (self.btn_gen_red, self.entrada_p_red, self.entrada_g_red):
             control.configure(state="normal" if parametros else "disabled")
         self.btn_pub_red.configure(state="normal" if parametros and conectado else "disabled")
+        self._actualizar_chat()
+
+    def _actualizar_chat(self):
+        if not hasattr(self, "mensajes") or not hasattr(self, "yo"):
+            return
+        self.conversacion.actualizar(self._publicos_eve, self._intercambio)
+        self.ataque_eve.actualizar_publicos(self._publicos_eve)
+        nuevas = self.conversacion.actualizar_claves({self.yo.nombre: self.yo.secreto},
+                                                     self.ataque_eve.estado.get("secreto"))
+        registrar_lecturas(nuevas, self._log)
+        conectado = self.canal is not None and (not isinstance(self.canal, CanalSocket) or self.canal.conectado)
+        motivo = ("Primero conectá el canal." if not conectado else
+                  "Primero intercambien p, g, A y B con esta versión de la app." if not self.conversacion.lista else
+                  "Derivá tu secreto K para usar los mensajes." if self.yo.secreto is None else "")
+        self.mensajes.actualizar(self.conversacion, {self.yo.nombre: motivo}, self.ataque_eve)
+
+    def _descifrar_texto(self, rol, identificador):
+        if rol != self.yo.nombre:
+            raise ErrorProtocolo("Solo podés descifrar los mensajes de tu personaje.")
+        nuevas = self.conversacion.descifrar(identificador, rol, self.yo.secreto)
+        registrar_lecturas(nuevas, self._log)
+        self._actualizar_chat()
+
+    def _enviar_texto(self, rol, texto):
+        if rol != self.yo.nombre or self.canal is None:
+            raise ErrorProtocolo("Conectá el canal con tu personaje.")
+        m = self.conversacion.preparar(rol, texto, self.yo.secreto)
+        self._log(f"{rol} cifró un mensaje con su K usando AES-256-GCM.")
+        self.canal.enviar(m)
+        self.conversacion.registrar(m, texto)
+        self._log(f"Enviado:\n{m.a_texto()}")
+        self._actualizar_chat()
 
     def _mostrar_error(self, texto):
         self.lbl_estado.configure(text=f"⚠ {texto}", text_color=tema.EVE)
@@ -419,9 +486,10 @@ class VistaModoArchivo(ctk.CTkFrame):
         if self.canal is None:
             raise ErrorProtocolo("Primero conectá el canal.")
         clave = "A" if quien.nombre == "Alice" else "B"
-        m = Mensaje(quien.nombre, "Bob" if clave == "A" else "Alice", "PUBLICA", {clave: quien.publica})
+        m = Mensaje(quien.nombre, "Bob" if clave == "A" else "Alice", "PUBLICA", {clave: quien.publica}, self._intercambio)
         self.canal.enviar(m)
         self._publicos_eve.update(m.datos)
+        self._actualizar_chat()
         self._log(f"Enviado:\n{m.a_texto()}")
 
     def datos_para_eve(self):

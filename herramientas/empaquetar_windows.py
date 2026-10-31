@@ -31,19 +31,25 @@ def main():
     shutil.copy2(raiz / "configuracion.json", paquete)
     shutil.copy2(raiz / "distribucion" / "COMO-JUGAR.txt", paquete)
     shutil.copy2(raiz / "GUIA-DE-ESTUDIO.md", paquete)
+    (paquete / "docs").mkdir()
+    shutil.copy2(raiz / "docs" / "CIFRADO.md", paquete / "docs")
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=raiz, check=True,
                               text=True, capture_output=True).stdout.strip()
+    cambios = subprocess.run(["git", "status", "--porcelain"], cwd=raiz, check=True,
+                             text=True, capture_output=True).stdout.strip()
+    estado = "con cambios sin commit" if cambios else "sin cambios locales"
     versiones = "\n".join(f"{p}={metadata.version(p)}" for p in
-                            ("customtkinter", "websockets", "pyinstaller"))
+                            ("customtkinter", "websockets", "cryptography", "pyinstaller"))
     (paquete / "VERSION.txt").write_text(
-        f"Diffie-Hellman - Windows 64 bits\nRevision: {revision}\n"
+        f"Diffie-Hellman - Windows 64 bits\nRevision: {revision}\nEstado: {estado}\n"
         f"Generado: {marca}\nPython: {sys.version}\n{versiones}\n", encoding="utf-8")
     licencias = paquete / "LICENCIAS"
     licencias.mkdir()
     licencia_python = Path(sys.base_prefix) / "LICENSE.txt"
     if licencia_python.exists():
         shutil.copy2(licencia_python, licencias / "Python.txt")
-    for dependencia in ("customtkinter", "websockets", "darkdetect", "packaging"):
+    for dependencia in ("customtkinter", "websockets", "darkdetect", "packaging",
+                        "cryptography", "cffi", "pycparser"):
         distribucion = metadata.distribution(dependencia)
         for archivo in distribucion.files or ():
             if ".dist-info" in str(archivo) and "license" in str(archivo).lower():
