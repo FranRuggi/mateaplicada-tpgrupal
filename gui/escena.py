@@ -36,7 +36,9 @@ class EscenaIntercambio(ctk.CTkFrame):
         self.canvas.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         self.canvas.bind("<Configure>", lambda _e: self._dibujar())
         ruta = Path(__file__).resolve().parents[1] / "assets" / "personajes-arcade.png"
-        self._hoja = tk.PhotoImage(master=self.canvas, file=str(ruta))
+        # Tk 9 puede detectar como SVG el icono del generador incluido en los
+        # metadatos C2PA del PNG. Seleccionar el decodificador de los píxeles.
+        self._hoja = tk.PhotoImage(master=self.canvas, file=str(ruta), format="png")
         self._sprites = {}
         self._fuentes = {}
         self.al_cambiar = al_cambiar

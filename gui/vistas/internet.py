@@ -102,7 +102,8 @@ class VistaInternet(ctk.CTkFrame):
         self.btn_salir.grid(row=0, column=2)
 
         ruta = Path(__file__).resolve().parents[2] / "assets" / "personajes-arcade.png"
-        hoja = tk.PhotoImage(master=self, file=str(ruta))
+        # El PNG contiene un SVG en los metadatos; evitar la autodetección de Tk 9.
+        hoja = tk.PhotoImage(master=self, file=str(ruta), format="png")
         celda = hoja.width()//3
         self.botones_rol, self.lbl_roles, self._imagenes = {}, {}, []
         for i, (rol, indice, color, descripcion) in enumerate([

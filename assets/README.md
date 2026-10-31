@@ -19,3 +19,8 @@ Prompt del ajuste final:
 
 El generador de Windows incluye esta carpeta dentro del exe único. Al ejecutar
 `main.py`, se carga el PNG de este repositorio; debe conservarse junto al código.
+
+La hoja incluye metadatos C2PA con un icono SVG del generador. Tk 9 puede
+seleccionar ese SVG al autodetectar el formato, mostrando el logo en vez de
+los personajes. Las dos pantallas cargan la hoja con `format="png"` para leer
+sus píxeles. Se mantienen intactos tanto el PNG original como sus metadatos.

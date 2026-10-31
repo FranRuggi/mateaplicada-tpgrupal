@@ -321,8 +321,8 @@ El formato anterior de carpeta y ZIP sigue disponible con
 
 Para ejecutar `main.py` desde el código, instalar `requirements.txt` y usar los
 recursos de la misma rama. El entorno de referencia usa Python 3.14. Las imágenes
-están en `assets/personajes-arcade.png`; un logo diferente al ejecutar indica
-que debe revisarse esa copia local del recurso.
+están en `assets/personajes-arcade.png`. La carga fuerza el formato PNG para
+que Tk 9 no confunda el icono SVG de los metadatos con los personajes.
 
 ## Preguntas para el profe
 
